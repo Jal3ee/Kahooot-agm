@@ -123,7 +123,7 @@ export default function PresenterView() {
         const startTime = localStartTime || (gameState.Start_Time ? new Date(gameState.Start_Time).getTime() : Date.now());
         const now = Date.now();
         const elapsed = (now - startTime) / 1000;
-        const totalTime = Number(gameState.Timer_Value) || 20;
+        const totalTime = Number(gameState.Timer_Value) || 0;
         const remaining = Math.max(0, Math.ceil(totalTime - elapsed));
         setTimeLeft(remaining);
       }, 500);
@@ -213,9 +213,11 @@ export default function PresenterView() {
                 <span className="mr-4 md:mr-6 opacity-75 shrink-0">D.</span> <span className="break-words whitespace-normal leading-tight">{currentQ.Option_D}</span>
               </div>
             </div>
-            <div className="mt-12 text-7xl font-black text-gold-400">
-              {timeLeft > 0 ? timeLeft : "Time's Up!"}
-            </div>
+            {Number(gameState.Timer_Value) > 0 && (
+              <div className="mt-12 text-7xl font-black text-gold-400">
+                {timeLeft > 0 ? timeLeft : "Time's Up!"}
+              </div>
+            )}
           </div>
         )}
 

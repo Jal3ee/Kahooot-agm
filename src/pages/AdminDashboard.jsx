@@ -21,7 +21,7 @@ export default function AdminDashboard() {
       Current_Question_No: currentQ ? currentQ.Question_No : 1,
       Status: newStatus,
       Start_Time: newStatus === 'QUESTION_ACTIVE' ? new Date().toISOString() : '',
-      Timer_Value: currentQ ? currentQ.Time_Limit : 20,
+      Timer_Value: currentQ ? (currentQ.Time_Limit || 0) : 0,
       Leaderboard_Reveal: revealRank
     };
     
@@ -107,7 +107,7 @@ export default function AdminDashboard() {
                           Current_Question_No: nextQ.Question_No,
                           Status: 'WAITING',
                           Start_Time: '',
-                          Timer_Value: nextQ.Time_Limit || 20,
+                          Timer_Value: nextQ.Time_Limit || 0,
                           Leaderboard_Reveal: revealRank
                         });
                       }
@@ -129,7 +129,7 @@ export default function AdminDashboard() {
                           Current_Question_No: nextQ.Question_No,
                           Status: 'WAITING',
                           Start_Time: '',
-                          Timer_Value: nextQ.Time_Limit || 20,
+                          Timer_Value: nextQ.Time_Limit || 0,
                           Leaderboard_Reveal: revealRank
                         });
                       }

@@ -96,17 +96,15 @@ export default function ParticipantPlay() {
     const responseTimeSecs = Math.max(0, (now - startTime) / 1000);
     
     // Calculate points based purely on speed (milliseconds), completely ignoring timer limit.
-    // This ensures almost no two players will get the exact same score.
     const isCorrect = option === currentQ.Correct_Option;
     let points = 0;
     
     if (isCorrect) {
        const responseTimeMs = now - startTime;
-       // Base points 1000. Subtract 0.04 points per millisecond (which equals 40 points lost per second).
-       // By using decimals (2 angka di belakang koma), EVERY single millisecond makes a difference!
-       // e.g. 1234ms -> 1000 - (1234 / 25) = 1000 - 49.36 = 950.64 points.
+       // Base points 1000. Subtract 0.04 points per millisecond (40 points lost per second).
        let calcPoints = 1000 - (responseTimeMs / 25);
-       points = Math.max(500, parseFloat(calcPoints.toFixed(2)));
+       // Pembulatan poin sesuai permintaan
+       points = Math.max(500, Math.round(calcPoints));
     }
     
     setScore(prev => prev + points);
