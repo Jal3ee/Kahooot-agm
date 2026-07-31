@@ -52,6 +52,8 @@ export default function PresenterView() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [timeLeft, setTimeLeft] = useState(0);
   const [activeSessionId, setActiveSessionId] = useState(null);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [localStartTime, setLocalStartTime] = useState(null);
 
   // Confetti size
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
@@ -89,6 +91,12 @@ export default function PresenterView() {
           }
         }
 
+        // Fetch users if in waiting state to show count
+        if (state.Status === 'WAITING') {
+          const data = await api.getJoinedCount();
+          setTotalUsers(data.count || 0);
+        }
+
       } catch (e) {
         console.error("Polling error", e);
       }
@@ -97,13 +105,23 @@ export default function PresenterView() {
     return () => clearInterval(pollInterval);
   }, [questions.length, activeSessionId]);
 
+  // Capture local start time when question becomes active
+  useEffect(() => {
+    if (gameState.Status === 'QUESTION_ACTIVE') {
+      setLocalStartTime(prev => prev || Date.now());
+    } else {
+      setLocalStartTime(null);
+    }
+  }, [gameState.Status, gameState.Current_Question_No]);
+
   // Handle local countdown timer
   useEffect(() => {
     let countdownInterval;
-    if (gameState.Status === 'QUESTION_ACTIVE' && gameState.Start_Time) {
+    if (gameState.Status === 'QUESTION_ACTIVE') {
       countdownInterval = setInterval(() => {
-        const startTime = new Date(gameState.Start_Time).getTime();
-        const now = new Date().getTime();
+        // Fallback to server Start_Time if local is missing (e.g. on page refresh)
+        const startTime = localStartTime || (gameState.Start_Time ? new Date(gameState.Start_Time).getTime() : Date.now());
+        const now = Date.now();
         const elapsed = (now - startTime) / 1000;
         const totalTime = Number(gameState.Timer_Value) || 20;
         const remaining = Math.max(0, Math.ceil(totalTime - elapsed));
@@ -113,7 +131,7 @@ export default function PresenterView() {
       setTimeLeft(0);
     }
     return () => clearInterval(countdownInterval);
-  }, [gameState.Status, gameState.Start_Time, gameState.Timer_Value]);
+  }, [gameState.Status, gameState.Start_Time, gameState.Timer_Value, localStartTime]);
 
   const currentQ = questions.find(q => q.Question_No == gameState.Current_Question_No) || null;
   const revealRank = gameState.Leaderboard_Reveal || 10;
@@ -170,6 +188,11 @@ export default function PresenterView() {
           <div className="text-center animate-bounce">
             <Anchor className="w-32 h-32 text-gold-500 mx-auto mb-8" />
             <h2 className="text-6xl font-black text-white drop-shadow-lg">Waiting for sailors to board...</h2>
+            {totalUsers > 0 && (
+              <p className="text-3xl mt-6 font-bold text-slate-300 animate-fade-in-up">
+                Total Crew Joined: <span className="text-gold-400">{totalUsers}</span>
+              </p>
+            )}
           </div>
         )}
 

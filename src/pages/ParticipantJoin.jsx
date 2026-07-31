@@ -11,6 +11,7 @@ export default function ParticipantJoin() {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
+  const [joining, setJoining] = useState(false);
 
   useEffect(() => {
     api.getUsers()
@@ -35,8 +36,14 @@ export default function ParticipantJoin() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
     if (selectedUser) {
+      setJoining(true);
+      try {
+        await api.joinSession(selectedUser);
+      } catch (err) {
+        console.error("Failed to notify join to server", err);
+      }
       localStorage.setItem('participantName', selectedUser);
       navigate('/play');
     }
@@ -110,10 +117,10 @@ export default function ParticipantJoin() {
           
           <button 
             onClick={handleJoin}
-            disabled={!selectedUser}
+            disabled={!selectedUser || joining}
             className="w-full bg-gold-500 hover:bg-gold-400 active:scale-95 disabled:opacity-50 disabled:active:scale-100 text-marine-900 font-bold py-4 px-4 rounded-xl transition-all duration-200 text-lg shadow-lg hover:shadow-gold-500/20"
           >
-            Enter Session
+            {joining ? "Joining..." : "Enter Session"}
           </button>
         </div>
       </div>

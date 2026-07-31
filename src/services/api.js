@@ -62,6 +62,18 @@ export const api = {
     return res.data;
   },
   
+  joinSession: async (name) => {
+    const res = await axios.post(GAS_URL, JSON.stringify({ action: 'joinSession', name }), {
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    });
+    return res.data;
+  },
+
+  getJoinedCount: async () => {
+    const res = await axios.get(`${GAS_URL}?action=getJoinedCount`);
+    return res.data;
+  },
+  
   addUser: async (user) => {
     const res = await axios.post(GAS_URL, JSON.stringify({ action: 'addUser', user }), {
         headers: { 'Content-Type': 'text/plain;charset=utf-8' }

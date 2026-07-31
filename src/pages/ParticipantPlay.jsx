@@ -9,9 +9,19 @@ export default function ParticipantPlay() {
   const lastQuestionNoRef = useRef(0);
   const [score, setScore] = useState(0); // Mock local score
   const [activeSessionId, setActiveSessionId] = useState(null);
+  const [localStartTime, setLocalStartTime] = useState(null);
   
   const navigate = useNavigate();
   const participantName = localStorage.getItem('participantName');
+
+  // Capture local start time when question becomes active
+  useEffect(() => {
+    if (gameState.Status === 'QUESTION_ACTIVE') {
+      setLocalStartTime(prev => prev || Date.now());
+    } else {
+      setLocalStartTime(null);
+    }
+  }, [gameState.Status, gameState.Current_Question_No]);
 
   useEffect(() => {
     if (!participantName) {
@@ -80,20 +90,23 @@ export default function ParticipantPlay() {
     const currentQ = questions.find(q => q.Question_No == gameState.Current_Question_No);
     if (!currentQ) return;
     
-    // Calculate response time
-    const startTime = new Date(gameState.Start_Time).getTime();
-    const now = new Date().getTime();
+    // Calculate response time based on local start time
+    const startTime = localStartTime || (gameState.Start_Time ? new Date(gameState.Start_Time).getTime() : Date.now());
+    const now = Date.now();
     const responseTimeSecs = Math.max(0, (now - startTime) / 1000);
     
-    // Calculate points
+    // Calculate points based purely on speed (milliseconds), completely ignoring timer limit.
+    // This ensures almost no two players will get the exact same score.
     const isCorrect = option === currentQ.Correct_Option;
     let points = 0;
     
     if (isCorrect) {
-       // Base 500, plus up to 500 based on speed
-       const timeLimit = Number(currentQ.Time_Limit) || 20;
-       const timeRatio = Math.max(0, (timeLimit - responseTimeSecs) / timeLimit);
-       points = 500 + Math.floor(500 * timeRatio);
+       const responseTimeMs = now - startTime;
+       // Base points 1000. Subtract 0.04 points per millisecond (which equals 40 points lost per second).
+       // By using decimals (2 angka di belakang koma), EVERY single millisecond makes a difference!
+       // e.g. 1234ms -> 1000 - (1234 / 25) = 1000 - 49.36 = 950.64 points.
+       let calcPoints = 1000 - (responseTimeMs / 25);
+       points = Math.max(500, parseFloat(calcPoints.toFixed(2)));
     }
     
     setScore(prev => prev + points);
@@ -124,40 +137,55 @@ export default function ParticipantPlay() {
           </div>
         )}
 
-        {gameState.Status === 'QUESTION_ACTIVE' && (
-          <div className="space-y-4 animate-pop-in">
-             <div className="text-3xl sm:text-4xl font-bold text-white mb-2 animate-fade-in-up">
-               {answered ? "Answer Recorded!" : "Ready?"}
-             </div>
-             {questions.find(q => q.Question_No == gameState.Current_Question_No) && (
-               <div className="text-lg sm:text-xl font-semibold text-slate-200 mb-8 px-2 break-words whitespace-normal leading-tight">
-                 {questions.find(q => q.Question_No == gameState.Current_Question_No).Question_Text}
-               </div>
-             )}
-             <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                <button 
-                  onClick={() => handleAnswer('A')} 
-                  disabled={answered}
-                  className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-200 bg-red-500 aspect-square sm:aspect-auto sm:h-32 rounded-2xl text-white font-bold text-4xl sm:text-5xl shadow-[0_6px_0_0_rgba(185,28,28,1)] active:shadow-none active:translate-y-[6px] border-2 border-red-400 flex items-center justify-center`}
-                >A</button>
-                <button 
-                  onClick={() => handleAnswer('B')} 
-                  disabled={answered}
-                  className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-200 bg-blue-500 aspect-square sm:aspect-auto sm:h-32 rounded-2xl text-white font-bold text-4xl sm:text-5xl shadow-[0_6px_0_0_rgba(29,78,216,1)] active:shadow-none active:translate-y-[6px] border-2 border-blue-400 flex items-center justify-center`}
-                >B</button>
-                <button 
-                  onClick={() => handleAnswer('C')} 
-                  disabled={answered}
-                  className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-200 bg-yellow-500 aspect-square sm:aspect-auto sm:h-32 rounded-2xl text-white font-bold text-4xl sm:text-5xl shadow-[0_6px_0_0_rgba(180,83,9,1)] active:shadow-none active:translate-y-[6px] border-2 border-yellow-400 flex items-center justify-center`}
-                >C</button>
-                <button 
-                  onClick={() => handleAnswer('D')} 
-                  disabled={answered}
-                  className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-200 bg-green-500 aspect-square sm:aspect-auto sm:h-32 rounded-2xl text-white font-bold text-4xl sm:text-5xl shadow-[0_6px_0_0_rgba(21,128,61,1)] active:shadow-none active:translate-y-[6px] border-2 border-green-400 flex items-center justify-center`}
-                >D</button>
-             </div>
-          </div>
-        )}
+        {gameState.Status === 'QUESTION_ACTIVE' && (() => {
+          const currentQ = questions.find(q => q.Question_No == gameState.Current_Question_No);
+          return (
+            <div className="space-y-4 animate-pop-in w-full">
+              <div className="text-3xl sm:text-4xl font-bold text-white mb-2 animate-fade-in-up">
+                {answered ? "Answer Recorded!" : "Ready?"}
+              </div>
+              {currentQ && (
+                <div className="text-lg sm:text-xl font-semibold text-slate-200 mb-6 px-2 break-words whitespace-normal leading-tight">
+                  {currentQ.Question_Text}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 w-full">
+                  <button 
+                    onClick={() => handleAnswer('A')} 
+                    disabled={answered}
+                    className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-200 bg-red-500 min-h-[120px] sm:min-h-[140px] rounded-2xl text-white font-bold shadow-[0_6px_0_0_rgba(185,28,28,1)] active:shadow-none active:translate-y-[6px] border-2 border-red-400 flex flex-col items-center justify-center p-2`}
+                  >
+                    <span className="text-3xl sm:text-4xl mb-1">A</span>
+                    <span className="text-sm sm:text-base px-1 break-words leading-tight w-full">{currentQ?.Option_A || ''}</span>
+                  </button>
+                  <button 
+                    onClick={() => handleAnswer('B')} 
+                    disabled={answered}
+                    className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-200 bg-blue-500 min-h-[120px] sm:min-h-[140px] rounded-2xl text-white font-bold shadow-[0_6px_0_0_rgba(29,78,216,1)] active:shadow-none active:translate-y-[6px] border-2 border-blue-400 flex flex-col items-center justify-center p-2`}
+                  >
+                    <span className="text-3xl sm:text-4xl mb-1">B</span>
+                    <span className="text-sm sm:text-base px-1 break-words leading-tight w-full">{currentQ?.Option_B || ''}</span>
+                  </button>
+                  <button 
+                    onClick={() => handleAnswer('C')} 
+                    disabled={answered}
+                    className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-200 bg-yellow-500 min-h-[120px] sm:min-h-[140px] rounded-2xl text-white font-bold shadow-[0_6px_0_0_rgba(180,83,9,1)] active:shadow-none active:translate-y-[6px] border-2 border-yellow-400 flex flex-col items-center justify-center p-2`}
+                  >
+                    <span className="text-3xl sm:text-4xl mb-1">C</span>
+                    <span className="text-sm sm:text-base px-1 break-words leading-tight w-full">{currentQ?.Option_C || ''}</span>
+                  </button>
+                  <button 
+                    onClick={() => handleAnswer('D')} 
+                    disabled={answered}
+                    className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-200 bg-green-500 min-h-[120px] sm:min-h-[140px] rounded-2xl text-white font-bold shadow-[0_6px_0_0_rgba(21,128,61,1)] active:shadow-none active:translate-y-[6px] border-2 border-green-400 flex flex-col items-center justify-center p-2`}
+                  >
+                    <span className="text-3xl sm:text-4xl mb-1">D</span>
+                    <span className="text-sm sm:text-base px-1 break-words leading-tight w-full">{currentQ?.Option_D || ''}</span>
+                  </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {gameState.Status === 'LEADERBOARD' && (
            <div className="py-12 animate-fade-in-up">
