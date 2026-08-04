@@ -14,18 +14,8 @@ export const api = {
   },
   
   getQuestions: async (sessionId = '') => {
-    let data;
-    const cacheKey = `cachedQuestions_${sessionId || 'all'}`;
-    const cached = sessionStorage.getItem(cacheKey);
-    
-    if (cached) {
-      data = JSON.parse(cached);
-    } else {
-      const res = await axios.get(`${GAS_URL}?action=getQuestions`);
-      data = res.data;
-      // We could cache the full list, but here we just cache whatever we fetched for this session
-      sessionStorage.setItem(cacheKey, JSON.stringify(data));
-    }
+    const res = await axios.get(`${GAS_URL}?action=getQuestions`);
+    let data = res.data;
     if (sessionId) {
       const sessionNum = String(sessionId).replace('Session', '').trim();
       data = data.filter(q => String(q.Session_ID) === sessionNum || String(q.Session_ID) === sessionId);

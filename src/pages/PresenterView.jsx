@@ -178,6 +178,26 @@ export default function PresenterView() {
     }
   }, [timeLeft, gameState.Status, gameState.Timer_Value]);
 
+  const bgMusicRef = useRef(null);
+  useEffect(() => {
+    bgMusicRef.current = new Audio('/jack_sparrow.mp3');
+    bgMusicRef.current.loop = true;
+    bgMusicRef.current.volume = 0.5;
+  }, []);
+
+  useEffect(() => {
+    if (gameState.Status === 'WAITING' && Number(gameState.Timer_Value) > 0 && timeLeft > 0) {
+      if (bgMusicRef.current && bgMusicRef.current.paused) {
+        bgMusicRef.current.play().catch(e => console.error("Audio play blocked", e));
+      }
+    } else {
+      if (bgMusicRef.current && !bgMusicRef.current.paused) {
+        bgMusicRef.current.pause();
+        bgMusicRef.current.currentTime = 0;
+      }
+    }
+  }, [gameState.Status, gameState.Timer_Value, timeLeft]);
+
   const currentQ = questions.find(q => q.Question_No == gameState.Current_Question_No) || null;
   const revealRank = gameState.Leaderboard_Reveal || 10;
 
