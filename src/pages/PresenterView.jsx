@@ -278,45 +278,45 @@ export default function PresenterView() {
 
         {gameState.Status === 'QUESTION_ACTIVE' && currentQ && (
           <div className="absolute inset-0 flex flex-col p-6 md:p-10 text-center bg-marine-900 overflow-hidden">
-            {/* Question Text */}
-            <div className="flex-none flex items-start justify-center w-full mb-4" style={{ minHeight: '15%', maxHeight: '40%' }}>
+            {/* Question Text (25% height) */}
+            <div className="w-full flex items-center justify-center mb-2" style={{ height: '25%' }}>
               <h2 className={`font-bold leading-tight break-words w-full overflow-hidden text-ellipsis ${currentQ.Question_Text?.length > 150 ? 'text-2xl md:text-3xl lg:text-4xl' : currentQ.Question_Text?.length > 80 ? 'text-3xl md:text-4xl lg:text-5xl' : 'text-4xl md:text-5xl lg:text-6xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>
                 {currentQ.Question_Text}
               </h2>
             </div>
             
-            {/* Options Grid */}
-            <div className="flex-1 grid grid-cols-2 gap-4 md:gap-6 min-h-0">
-              <div className="flex items-center bg-red-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-red-600 break-words text-left overflow-hidden">
+            {/* Options Grid (60% height) */}
+            <div className="w-full grid grid-cols-2 gap-4 md:gap-6" style={{ height: '60%' }}>
+              <div className="flex items-center bg-red-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-red-600 break-words text-left overflow-hidden h-full min-h-0">
                 <span className="mr-4 md:mr-6 opacity-75 shrink-0 text-3xl md:text-5xl">A.</span> 
-                <span className={`break-words leading-tight overflow-hidden text-ellipsis ${currentQ.Option_A?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_A}</span>
+                <span className={`break-words leading-tight overflow-hidden text-ellipsis w-full ${currentQ.Option_A?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_A}</span>
               </div>
-              <div className="flex items-center bg-blue-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-blue-600 break-words text-left overflow-hidden">
+              <div className="flex items-center bg-blue-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-blue-600 break-words text-left overflow-hidden h-full min-h-0">
                 <span className="mr-4 md:mr-6 opacity-75 shrink-0 text-3xl md:text-5xl">B.</span> 
-                <span className={`break-words leading-tight overflow-hidden text-ellipsis ${currentQ.Option_B?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_B}</span>
+                <span className={`break-words leading-tight overflow-hidden text-ellipsis w-full ${currentQ.Option_B?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_B}</span>
               </div>
-              <div className="flex items-center bg-yellow-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-yellow-600 break-words text-left overflow-hidden">
+              <div className="flex items-center bg-yellow-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-yellow-600 break-words text-left overflow-hidden h-full min-h-0">
                 <span className="mr-4 md:mr-6 opacity-75 shrink-0 text-3xl md:text-5xl">C.</span> 
-                <span className={`break-words leading-tight overflow-hidden text-ellipsis ${currentQ.Option_C?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_C}</span>
+                <span className={`break-words leading-tight overflow-hidden text-ellipsis w-full ${currentQ.Option_C?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_C}</span>
               </div>
-              <div className="flex items-center bg-green-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-green-600 break-words text-left overflow-hidden">
+              <div className="flex items-center bg-green-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-green-600 break-words text-left overflow-hidden h-full min-h-0">
                 <span className="mr-4 md:mr-6 opacity-75 shrink-0 text-3xl md:text-5xl">D.</span> 
-                <span className={`break-words leading-tight overflow-hidden text-ellipsis ${currentQ.Option_D?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_D}</span>
+                <span className={`break-words leading-tight overflow-hidden text-ellipsis w-full ${currentQ.Option_D?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_D}</span>
               </div>
             </div>
 
-            {/* Timer */}
-            {Number(gameState.Timer_Value) > 0 && (
-              <div className="flex-none mt-4 flex justify-center items-end" style={{ height: '15%' }}>
-                <div className={`font-black transition-all duration-300 text-6xl md:text-8xl lg:text-9xl ${
+            {/* Timer (15% height) */}
+            <div className="w-full flex justify-center items-center" style={{ height: '15%' }}>
+              {Number(gameState.Timer_Value) > 0 && (
+                <div className={`font-black transition-all duration-300 text-6xl md:text-7xl lg:text-8xl ${
                     timeLeft <= 3 && timeLeft > 0 
                     ? "text-red-500 scale-125" 
                     : (timeLeft === 0 ? "text-red-600" : "text-gold-400")
                 }`}>
                   {timeLeft > 0 ? timeLeft : "Time's Up!"}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
 
