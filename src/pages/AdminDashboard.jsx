@@ -7,12 +7,13 @@ export default function AdminDashboard() {
   const [questions, setQuestions] = useState([]);
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [revealRank, setRevealRank] = useState(10);
+  const [joinTimer, setJoinTimer] = useState(60);
   
   useEffect(() => {
     api.getQuestions(activeSession).then(setQuestions);
   }, [activeSession]);
 
-  const handleUpdateState = (newStatus) => {
+  const handleUpdateState = (newStatus, customTimer = null) => {
     setStatus(newStatus);
     const currentQ = questions[currentQIndex];
     
@@ -20,8 +21,8 @@ export default function AdminDashboard() {
       Active_Session_ID: activeSession,
       Current_Question_No: currentQ ? currentQ.Question_No : 1,
       Status: newStatus,
-      Start_Time: newStatus === 'QUESTION_ACTIVE' ? new Date().toISOString() : '',
-      Timer_Value: currentQ ? (currentQ.Time_Limit || 0) : 0,
+      Start_Time: (newStatus === 'QUESTION_ACTIVE' || customTimer !== null) ? new Date().toISOString() : '',
+      Timer_Value: customTimer !== null ? customTimer : (newStatus === 'QUESTION_ACTIVE' && currentQ ? (currentQ.Timer || currentQ.Time_Limit || 0) : 0),
       Leaderboard_Reveal: revealRank
     };
     
@@ -85,13 +86,30 @@ export default function AdminDashboard() {
                  <button onClick={() => handleUpdateState('LEADERBOARD')} className="bg-gold-500 hover:bg-gold-400 text-marine-900 py-3 rounded font-bold">Show Leaderboard</button>
                  <button onClick={() => handleUpdateState('COMBINED')} className="bg-purple-500 hover:bg-purple-400 text-white py-3 rounded font-bold">Combined LB</button>
               </div>
+
+              <div className="mt-6 p-4 bg-marine-700 rounded-lg border border-marine-600 flex flex-wrap items-center gap-4">
+                <label className="text-white font-bold">Join Timer (Lobby):</label>
+                <input 
+                  type="number" 
+                  value={joinTimer} 
+                  onChange={(e) => setJoinTimer(e.target.value)}
+                  className="bg-marine-800 text-white border border-marine-500 rounded px-3 py-2 w-24 text-center"
+                />
+                <span className="text-slate-300">seconds</span>
+                <button 
+                  onClick={() => handleUpdateState('WAITING', Number(joinTimer))} 
+                  className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-bold ml-auto"
+                >
+                  Start Join Timer
+                </button>
+              </div>
             </section>
 
             {/* Current Question preview */}
             <section className="bg-marine-800 p-6 rounded-xl border border-marine-700">
                <h2 className="text-xl font-bold text-gold-400 mb-4">Current Question Preview</h2>
                <div className="bg-marine-700 p-4 rounded text-white mb-4 min-h-[60px]">
-                  {currentQuestion ? `(${currentQuestion.Question_No}) ${currentQuestion.Question_Text} [Time: ${currentQuestion.Time_Limit}s]` : 'Loading questions...'}
+                  {currentQuestion ? `(${currentQuestion.Question_No}) ${currentQuestion.Question_Text} [Time: ${currentQuestion.Timer || currentQuestion.Time_Limit || '0'}s]` : 'Loading questions...'}
                </div>
                 <div className="flex gap-4">
                   <button 
@@ -107,7 +125,7 @@ export default function AdminDashboard() {
                           Current_Question_No: nextQ.Question_No,
                           Status: 'WAITING',
                           Start_Time: '',
-                          Timer_Value: nextQ.Time_Limit || 0,
+                          Timer_Value: nextQ.Timer || nextQ.Time_Limit || 0,
                           Leaderboard_Reveal: revealRank
                         });
                       }
@@ -129,7 +147,7 @@ export default function AdminDashboard() {
                           Current_Question_No: nextQ.Question_No,
                           Status: 'WAITING',
                           Start_Time: '',
-                          Timer_Value: nextQ.Time_Limit || 0,
+                          Timer_Value: nextQ.Timer || nextQ.Time_Limit || 0,
                           Leaderboard_Reveal: revealRank
                         });
                       }

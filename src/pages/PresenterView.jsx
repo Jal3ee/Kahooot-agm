@@ -46,6 +46,30 @@ const playCelebrationSound = (rank) => {
   }
 };
 
+const playBeep = (freq, duration, type = 'sine') => {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    if (ctx.state === 'suspended') ctx.resume();
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  } catch (e) {
+    console.error("Audio playback failed", e);
+  }
+};
+
 export default function PresenterView() {
   const [gameState, setGameState] = useState({ Status: 'WAITING', Current_Question_No: 1 });
   const [questions, setQuestions] = useState([]);
@@ -117,10 +141,15 @@ export default function PresenterView() {
   // Handle local countdown timer
   useEffect(() => {
     let countdownInterval;
-    if (gameState.Status === 'QUESTION_ACTIVE') {
+    if (gameState.Status === 'QUESTION_ACTIVE' || gameState.Status === 'WAITING') {
       countdownInterval = setInterval(() => {
-        // Fallback to server Start_Time if local is missing (e.g. on page refresh)
-        const startTime = localStartTime || (gameState.Start_Time ? new Date(gameState.Start_Time).getTime() : Date.now());
+        let startTime;
+        if (gameState.Status === 'QUESTION_ACTIVE') {
+           startTime = localStartTime || (gameState.Start_Time ? new Date(gameState.Start_Time).getTime() : Date.now());
+        } else {
+           startTime = gameState.Start_Time ? new Date(gameState.Start_Time).getTime() : Date.now();
+        }
+        
         const now = Date.now();
         const elapsed = (now - startTime) / 1000;
         const totalTime = Number(gameState.Timer_Value) || 0;
@@ -132,6 +161,22 @@ export default function PresenterView() {
     }
     return () => clearInterval(countdownInterval);
   }, [gameState.Status, gameState.Start_Time, gameState.Timer_Value, localStartTime]);
+
+  const prevTimeLeft = useRef(null);
+  useEffect(() => {
+    if ((gameState.Status === 'QUESTION_ACTIVE' || gameState.Status === 'WAITING') && Number(gameState.Timer_Value) > 0) {
+      if (prevTimeLeft.current !== null && timeLeft !== prevTimeLeft.current) {
+        if (timeLeft === 3 || timeLeft === 2 || timeLeft === 1) {
+          playBeep(800, 0.2);
+        } else if (timeLeft === 0 && prevTimeLeft.current > 0) {
+          playBeep(300, 1.0, 'square');
+        }
+      }
+      prevTimeLeft.current = timeLeft;
+    } else {
+      prevTimeLeft.current = null;
+    }
+  }, [timeLeft, gameState.Status, gameState.Timer_Value]);
 
   const currentQ = questions.find(q => q.Question_No == gameState.Current_Question_No) || null;
   const revealRank = gameState.Leaderboard_Reveal || 10;
@@ -185,9 +230,20 @@ export default function PresenterView() {
 
       <main className="flex-1 flex items-center justify-center p-8 relative z-40">
         {gameState.Status === 'WAITING' && (
-          <div className="text-center animate-bounce">
-            <Anchor className="w-32 h-32 text-gold-500 mx-auto mb-8" />
+          <div className="text-center">
+            <Anchor className={`w-32 h-32 text-gold-500 mx-auto mb-8 ${Number(gameState.Timer_Value) > 0 && timeLeft <= 10 ? 'animate-pulse text-red-500' : 'animate-bounce'}`} />
             <h2 className="text-6xl font-black text-white drop-shadow-lg">Waiting for sailors to board...</h2>
+            
+            {Number(gameState.Timer_Value) > 0 && (
+              <div className={`mt-12 font-black transition-all duration-300 ${
+                  timeLeft <= 3 && timeLeft > 0 
+                  ? "text-9xl text-red-500 scale-125" 
+                  : (timeLeft === 0 ? "text-8xl text-red-600" : "text-7xl text-gold-400")
+              }`}>
+                {timeLeft > 0 ? timeLeft : "Let's Go!"}
+              </div>
+            )}
+
             {totalUsers > 0 && (
               <p className="text-3xl mt-6 font-bold text-slate-300 animate-fade-in-up">
                 Total Crew Joined: <span className="text-gold-400">{totalUsers}</span>
@@ -214,7 +270,11 @@ export default function PresenterView() {
               </div>
             </div>
             {Number(gameState.Timer_Value) > 0 && (
-              <div className="mt-12 text-7xl font-black text-gold-400">
+              <div className={`mt-12 font-black transition-all duration-300 ${
+                  timeLeft <= 3 && timeLeft > 0 
+                  ? "text-9xl text-red-500 scale-125" 
+                  : (timeLeft === 0 ? "text-8xl text-red-600" : "text-7xl text-gold-400")
+              }`}>
                 {timeLeft > 0 ? timeLeft : "Time's Up!"}
               </div>
             )}
