@@ -178,7 +178,7 @@ export default function PresenterView() {
           </button>
         </div>
         <div className="text-right">
-          <h1 className="text-3xl font-bold text-gold-400 uppercase tracking-widest">Join at: s.id/.......</h1>
+          <h1 className="text-3xl font-bold text-gold-400 uppercase tracking-widest">Join at: https://s.id/CCAGM</h1>
           <p className="text-xl text-slate-300">Session: <span className="font-bold text-white">{gameState.Active_Session_ID || 'TBA'}</span></p>
         </div>
       </header>
