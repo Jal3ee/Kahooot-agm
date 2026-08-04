@@ -228,7 +228,11 @@ export default function PresenterView() {
   };
 
   return (
-    <div className="min-h-screen bg-marine-900 text-white flex flex-col overflow-hidden relative">
+    <div className="w-screen h-screen bg-black flex items-center justify-center overflow-hidden">
+      <div 
+        className="bg-marine-900 text-white flex flex-col relative overflow-hidden shadow-2xl"
+        style={{ width: '100%', maxWidth: '177.78vh', aspectRatio: '16/9', containerType: 'size' }}
+      >
       {gameState.Status === 'COMBINED' && revealRank <= 1 && (
         <div className="fixed inset-0 z-50 pointer-events-none">
           <Confetti width={windowSize.width} height={windowSize.height} recycle={true} numberOfPieces={500} />
@@ -273,29 +277,44 @@ export default function PresenterView() {
         )}
 
         {gameState.Status === 'QUESTION_ACTIVE' && currentQ && (
-          <div className="w-full max-w-5xl text-center px-4">
-            <h2 className="text-4xl md:text-5xl font-bold mb-8 md:mb-12 leading-tight break-words">{currentQ.Question_Text}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              <div className="flex items-start bg-red-500 p-6 md:p-8 rounded-2xl text-2xl md:text-4xl font-bold shadow-xl border-4 border-red-600 break-words text-left min-h-[100px]">
-                <span className="mr-4 md:mr-6 opacity-75 shrink-0">A.</span> <span className="break-words whitespace-normal leading-tight">{currentQ.Option_A}</span>
+          <div className="w-full h-full flex flex-col p-8 text-center min-h-0">
+            {/* Question Text */}
+            <div className="flex-none flex items-center justify-center mb-6" style={{ height: '30%' }}>
+              <h2 className="font-bold leading-tight break-words w-full" style={{ fontSize: 'clamp(2rem, 4.5cqi, 5rem)' }}>
+                {currentQ.Question_Text}
+              </h2>
+            </div>
+            
+            {/* Options Grid */}
+            <div className="flex-1 grid grid-cols-2 gap-6 min-h-0">
+              <div className="flex items-center bg-red-500 p-6 rounded-2xl font-bold shadow-xl border-4 border-red-600 break-words text-left overflow-hidden">
+                <span className="mr-6 opacity-75 shrink-0" style={{ fontSize: 'clamp(1.5rem, 4cqi, 4rem)' }}>A.</span> 
+                <span className="break-words leading-tight" style={{ fontSize: 'clamp(1.25rem, 3.5cqi, 3.5rem)' }}>{currentQ.Option_A}</span>
               </div>
-              <div className="flex items-start bg-blue-500 p-6 md:p-8 rounded-2xl text-2xl md:text-4xl font-bold shadow-xl border-4 border-blue-600 break-words text-left min-h-[100px]">
-                <span className="mr-4 md:mr-6 opacity-75 shrink-0">B.</span> <span className="break-words whitespace-normal leading-tight">{currentQ.Option_B}</span>
+              <div className="flex items-center bg-blue-500 p-6 rounded-2xl font-bold shadow-xl border-4 border-blue-600 break-words text-left overflow-hidden">
+                <span className="mr-6 opacity-75 shrink-0" style={{ fontSize: 'clamp(1.5rem, 4cqi, 4rem)' }}>B.</span> 
+                <span className="break-words leading-tight" style={{ fontSize: 'clamp(1.25rem, 3.5cqi, 3.5rem)' }}>{currentQ.Option_B}</span>
               </div>
-              <div className="flex items-start bg-yellow-500 p-6 md:p-8 rounded-2xl text-2xl md:text-4xl font-bold shadow-xl border-4 border-yellow-600 break-words text-left min-h-[100px]">
-                <span className="mr-4 md:mr-6 opacity-75 shrink-0">C.</span> <span className="break-words whitespace-normal leading-tight">{currentQ.Option_C}</span>
+              <div className="flex items-center bg-yellow-500 p-6 rounded-2xl font-bold shadow-xl border-4 border-yellow-600 break-words text-left overflow-hidden">
+                <span className="mr-6 opacity-75 shrink-0" style={{ fontSize: 'clamp(1.5rem, 4cqi, 4rem)' }}>C.</span> 
+                <span className="break-words leading-tight" style={{ fontSize: 'clamp(1.25rem, 3.5cqi, 3.5rem)' }}>{currentQ.Option_C}</span>
               </div>
-              <div className="flex items-start bg-green-500 p-6 md:p-8 rounded-2xl text-2xl md:text-4xl font-bold shadow-xl border-4 border-green-600 break-words text-left min-h-[100px]">
-                <span className="mr-4 md:mr-6 opacity-75 shrink-0">D.</span> <span className="break-words whitespace-normal leading-tight">{currentQ.Option_D}</span>
+              <div className="flex items-center bg-green-500 p-6 rounded-2xl font-bold shadow-xl border-4 border-green-600 break-words text-left overflow-hidden">
+                <span className="mr-6 opacity-75 shrink-0" style={{ fontSize: 'clamp(1.5rem, 4cqi, 4rem)' }}>D.</span> 
+                <span className="break-words leading-tight" style={{ fontSize: 'clamp(1.25rem, 3.5cqi, 3.5rem)' }}>{currentQ.Option_D}</span>
               </div>
             </div>
+
+            {/* Timer */}
             {Number(gameState.Timer_Value) > 0 && (
-              <div className={`mt-12 font-black transition-all duration-300 ${
-                  timeLeft <= 3 && timeLeft > 0 
-                  ? "text-9xl text-red-500 scale-125" 
-                  : (timeLeft === 0 ? "text-8xl text-red-600" : "text-7xl text-gold-400")
-              }`}>
-                {timeLeft > 0 ? timeLeft : "Time's Up!"}
+              <div className="flex-none mt-6 flex justify-center items-center" style={{ height: '15%' }}>
+                <div className={`font-black transition-all duration-300 ${
+                    timeLeft <= 3 && timeLeft > 0 
+                    ? "text-red-500 scale-125" 
+                    : (timeLeft === 0 ? "text-red-600" : "text-gold-400")
+                }`} style={{ fontSize: 'clamp(3rem, 8cqi, 10rem)' }}>
+                  {timeLeft > 0 ? timeLeft : "Time's Up!"}
+                </div>
               </div>
             )}
           </div>
@@ -344,6 +363,7 @@ export default function PresenterView() {
           </div>
         )}
       </main>
+      </div>
     </div>
   );
 }
