@@ -252,9 +252,9 @@ export default function PresenterView() {
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center p-8 relative z-40">
+      <main className="flex-1 relative z-40 overflow-hidden">
         {gameState.Status === 'WAITING' && (
-          <div className="text-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
             <Anchor className={`w-32 h-32 text-gold-500 mx-auto mb-8 ${Number(gameState.Timer_Value) > 0 && timeLeft <= 10 ? 'animate-pulse text-red-500' : 'animate-bounce'}`} />
             <h2 className="text-6xl font-black text-white drop-shadow-lg">Waiting for sailors to board...</h2>
             
@@ -277,42 +277,42 @@ export default function PresenterView() {
         )}
 
         {gameState.Status === 'QUESTION_ACTIVE' && currentQ && (
-          <div className="w-full h-full flex flex-col p-8 text-center min-h-0">
+          <div className="absolute inset-0 flex flex-col p-6 md:p-10 text-center bg-marine-900 overflow-hidden">
             {/* Question Text */}
-            <div className="flex-none flex items-center justify-center mb-6" style={{ height: '30%' }}>
-              <h2 className="font-bold leading-tight break-words w-full" style={{ fontSize: 'clamp(2rem, 4.5cqi, 5rem)' }}>
+            <div className="flex-none flex items-start justify-center w-full mb-4" style={{ minHeight: '15%', maxHeight: '40%' }}>
+              <h2 className={`font-bold leading-tight break-words w-full overflow-hidden text-ellipsis ${currentQ.Question_Text?.length > 150 ? 'text-2xl md:text-3xl lg:text-4xl' : currentQ.Question_Text?.length > 80 ? 'text-3xl md:text-4xl lg:text-5xl' : 'text-4xl md:text-5xl lg:text-6xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>
                 {currentQ.Question_Text}
               </h2>
             </div>
             
             {/* Options Grid */}
-            <div className="flex-1 grid grid-cols-2 gap-6 min-h-0">
-              <div className="flex items-center bg-red-500 p-6 rounded-2xl font-bold shadow-xl border-4 border-red-600 break-words text-left overflow-hidden">
-                <span className="mr-6 opacity-75 shrink-0" style={{ fontSize: 'clamp(1.5rem, 4cqi, 4rem)' }}>A.</span> 
-                <span className="break-words leading-tight" style={{ fontSize: 'clamp(1.25rem, 3.5cqi, 3.5rem)' }}>{currentQ.Option_A}</span>
+            <div className="flex-1 grid grid-cols-2 gap-4 md:gap-6 min-h-0">
+              <div className="flex items-center bg-red-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-red-600 break-words text-left overflow-hidden">
+                <span className="mr-4 md:mr-6 opacity-75 shrink-0 text-3xl md:text-5xl">A.</span> 
+                <span className={`break-words leading-tight overflow-hidden text-ellipsis ${currentQ.Option_A?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_A}</span>
               </div>
-              <div className="flex items-center bg-blue-500 p-6 rounded-2xl font-bold shadow-xl border-4 border-blue-600 break-words text-left overflow-hidden">
-                <span className="mr-6 opacity-75 shrink-0" style={{ fontSize: 'clamp(1.5rem, 4cqi, 4rem)' }}>B.</span> 
-                <span className="break-words leading-tight" style={{ fontSize: 'clamp(1.25rem, 3.5cqi, 3.5rem)' }}>{currentQ.Option_B}</span>
+              <div className="flex items-center bg-blue-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-blue-600 break-words text-left overflow-hidden">
+                <span className="mr-4 md:mr-6 opacity-75 shrink-0 text-3xl md:text-5xl">B.</span> 
+                <span className={`break-words leading-tight overflow-hidden text-ellipsis ${currentQ.Option_B?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_B}</span>
               </div>
-              <div className="flex items-center bg-yellow-500 p-6 rounded-2xl font-bold shadow-xl border-4 border-yellow-600 break-words text-left overflow-hidden">
-                <span className="mr-6 opacity-75 shrink-0" style={{ fontSize: 'clamp(1.5rem, 4cqi, 4rem)' }}>C.</span> 
-                <span className="break-words leading-tight" style={{ fontSize: 'clamp(1.25rem, 3.5cqi, 3.5rem)' }}>{currentQ.Option_C}</span>
+              <div className="flex items-center bg-yellow-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-yellow-600 break-words text-left overflow-hidden">
+                <span className="mr-4 md:mr-6 opacity-75 shrink-0 text-3xl md:text-5xl">C.</span> 
+                <span className={`break-words leading-tight overflow-hidden text-ellipsis ${currentQ.Option_C?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_C}</span>
               </div>
-              <div className="flex items-center bg-green-500 p-6 rounded-2xl font-bold shadow-xl border-4 border-green-600 break-words text-left overflow-hidden">
-                <span className="mr-6 opacity-75 shrink-0" style={{ fontSize: 'clamp(1.5rem, 4cqi, 4rem)' }}>D.</span> 
-                <span className="break-words leading-tight" style={{ fontSize: 'clamp(1.25rem, 3.5cqi, 3.5rem)' }}>{currentQ.Option_D}</span>
+              <div className="flex items-center bg-green-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-green-600 break-words text-left overflow-hidden">
+                <span className="mr-4 md:mr-6 opacity-75 shrink-0 text-3xl md:text-5xl">D.</span> 
+                <span className={`break-words leading-tight overflow-hidden text-ellipsis ${currentQ.Option_D?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_D}</span>
               </div>
             </div>
 
             {/* Timer */}
             {Number(gameState.Timer_Value) > 0 && (
-              <div className="flex-none mt-6 flex justify-center items-center" style={{ height: '15%' }}>
-                <div className={`font-black transition-all duration-300 ${
+              <div className="flex-none mt-4 flex justify-center items-end" style={{ height: '15%' }}>
+                <div className={`font-black transition-all duration-300 text-6xl md:text-8xl lg:text-9xl ${
                     timeLeft <= 3 && timeLeft > 0 
                     ? "text-red-500 scale-125" 
                     : (timeLeft === 0 ? "text-red-600" : "text-gold-400")
-                }`} style={{ fontSize: 'clamp(3rem, 8cqi, 10rem)' }}>
+                }`}>
                   {timeLeft > 0 ? timeLeft : "Time's Up!"}
                 </div>
               </div>
@@ -321,12 +321,13 @@ export default function PresenterView() {
         )}
 
         {(gameState.Status === 'LEADERBOARD' || gameState.Status === 'COMBINED') && (
-          <div className="w-full max-w-4xl bg-marine-800 rounded-3xl p-12 shadow-2xl border border-gold-500/30">
-            <h2 className="text-5xl font-bold text-center text-gold-400 mb-12 flex justify-center items-center gap-4">
-              <Trophy className="w-16 h-16" /> {gameState.Status === 'COMBINED' ? 'Final Voyage Standings' : 'Top Sailors'}
-            </h2>
-            <div className="space-y-4 relative">
-              {leaderboard.length === 0 ? (
+          <div className="absolute inset-0 flex items-center justify-center p-8 overflow-hidden">
+            <div className="w-full max-w-4xl max-h-full flex flex-col bg-marine-800 rounded-3xl p-8 md:p-12 shadow-2xl border border-gold-500/30 overflow-hidden">
+              <h2 className="text-4xl md:text-5xl font-bold text-center text-gold-400 mb-8 md:mb-12 flex justify-center items-center gap-4 flex-none">
+                <Trophy className="w-12 h-12 md:w-16 md:h-16" /> {gameState.Status === 'COMBINED' ? 'Final Voyage Standings' : 'Top Sailors'}
+              </h2>
+              <div className="space-y-4 relative flex-1 overflow-y-auto min-h-0 pr-4 custom-scrollbar">
+                {leaderboard.length === 0 ? (
                 <p className="text-center text-slate-400 text-2xl">Calculating scores...</p>
               ) : (
                 visibleLeaderboard.map((u, index) => {
@@ -347,12 +348,12 @@ export default function PresenterView() {
                   }
 
                   return (
-                    <div key={actualRank} className={`flex justify-between items-center p-4 sm:p-6 rounded-xl text-xl sm:text-2xl font-bold animate-fade-in-up transition-all duration-500 ${styleClass} relative gap-4`} style={{ zIndex: actualRank <= 3 ? 4 - actualRank : 0 }}>
-                      <div className="flex gap-3 sm:gap-4 items-center min-w-0 flex-1">
-                        <span className={`w-10 sm:w-12 shrink-0 text-2xl sm:text-3xl ${textClass}`}>#{actualRank}</span>
-                        <span className="text-2xl sm:text-3xl truncate break-words whitespace-normal leading-tight min-w-0">{u.name || u.combinedName || u.Name}</span>
+                    <div key={actualRank} className={`flex justify-between items-center p-3 sm:p-5 rounded-xl text-lg sm:text-xl md:text-2xl font-bold animate-fade-in-up transition-all duration-500 ${styleClass} relative gap-4`} style={{ zIndex: actualRank <= 3 ? 4 - actualRank : 0 }}>
+                      <div className="flex gap-2 sm:gap-4 items-center min-w-0 flex-1">
+                        <span className={`w-8 sm:w-10 md:w-12 shrink-0 text-xl sm:text-2xl md:text-3xl ${textClass}`}>#{actualRank}</span>
+                        <span className="text-xl sm:text-2xl md:text-3xl truncate break-words whitespace-normal leading-tight min-w-0">{u.name || u.combinedName || u.Name}</span>
                       </div>
-                      <div className={`text-2xl sm:text-3xl shrink-0 whitespace-nowrap text-right ${actualRank <= 3 ? (actualRank === 3 ? 'text-amber-200' : 'text-black/80') : 'text-gold-400'}`}>
+                      <div className={`text-xl sm:text-2xl md:text-3xl shrink-0 whitespace-nowrap text-right ${actualRank <= 3 ? (actualRank === 3 ? 'text-amber-200' : 'text-black/80') : 'text-gold-400'}`}>
                         {u.points !== undefined ? u.points : (u.score !== undefined ? u.score : (u.totalPoints !== undefined ? u.totalPoints : u.Points))} pts
                       </div>
                     </div>
@@ -360,6 +361,7 @@ export default function PresenterView() {
                 })
               )}
             </div>
+          </div>
           </div>
         )}
       </main>
