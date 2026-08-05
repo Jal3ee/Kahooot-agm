@@ -95,7 +95,7 @@ function getGameState() {
 function updateGameState(state) {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Game_State');
   sheet.clearContents(); // Clear existing
-  const headers = ['Active_Session_ID', 'Current_Question_No', 'Status', 'Start_Time', 'Timer_Value', 'Leaderboard_Reveal'];
+  const headers = ['Active_Session_ID', 'Current_Question_No', 'Status', 'Start_Time', 'Timer_Value', 'Leaderboard_Reveal', 'Show_Player_Count', 'Play_Music', 'Leaderboard_Page'];
   sheet.appendRow(headers);
   sheet.appendRow([
     state.Active_Session_ID || '',
@@ -103,7 +103,10 @@ function updateGameState(state) {
     state.Status || 'WAITING',
     state.Start_Time || '',
     state.Timer_Value || 0,
-    state.Leaderboard_Reveal || 10
+    state.Leaderboard_Reveal || 10,
+    state.Show_Player_Count !== undefined ? state.Show_Player_Count : true,
+    state.Play_Music !== undefined ? state.Play_Music : false,
+    state.Leaderboard_Page || 1
   ]);
   return { success: true, state };
 }

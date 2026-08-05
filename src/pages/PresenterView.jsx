@@ -186,7 +186,8 @@ export default function PresenterView() {
   }, []);
 
   useEffect(() => {
-    if (gameState.Status === 'WAITING' && Number(gameState.Timer_Value) > 0 && timeLeft > 0) {
+    // Play Captain Jack Sparrow theme if Admin toggled Play_Music to true
+    if (gameState.Play_Music === true) {
       if (bgMusicRef.current && bgMusicRef.current.paused) {
         bgMusicRef.current.play().catch(e => console.error("Audio play blocked", e));
       }
@@ -196,7 +197,7 @@ export default function PresenterView() {
         bgMusicRef.current.currentTime = 0;
       }
     }
-  }, [gameState.Status, gameState.Timer_Value, timeLeft]);
+  }, [gameState.Play_Music]);
 
   const currentQ = questions.find(q => q.Question_No == gameState.Current_Question_No) || null;
   const revealRank = gameState.Leaderboard_Reveal || 10;
@@ -215,8 +216,15 @@ export default function PresenterView() {
     prevRevealRank.current = revealRank;
   }, [revealRank, gameState.Status]);
 
-  // Filter leaderboard to only show items based on reveal rank
-  const visibleLeaderboard = leaderboard.slice(0, 10).filter((_, index) => (index + 1) >= revealRank);
+  const leaderboardPage = Number(gameState.Leaderboard_Page) || 1;
+  const startIndex = (leaderboardPage - 1) * 10;
+  
+  let visibleLeaderboard = [];
+  if (leaderboardPage === 1) {
+    visibleLeaderboard = leaderboard.slice(0, 10).map((u, i) => ({...u, actualRank: i + 1})).filter(u => u.actualRank >= revealRank);
+  } else {
+    visibleLeaderboard = leaderboard.slice(startIndex, startIndex + 10).map((u, i) => ({...u, actualRank: startIndex + i + 1}));
+  }
 
   const handleEnableAudio = () => {
     // Just a dummy action to register a user interaction in the browser so AudioContext can resume
@@ -254,25 +262,37 @@ export default function PresenterView() {
 
       <main className="flex-1 relative z-40 overflow-hidden">
         {gameState.Status === 'WAITING' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
-            <Anchor className={`w-32 h-32 text-gold-500 mx-auto mb-8 ${Number(gameState.Timer_Value) > 0 && timeLeft <= 10 ? 'animate-pulse text-red-500' : 'animate-bounce'}`} />
-            <h2 className="text-6xl font-black text-white drop-shadow-lg">Waiting for sailors to board...</h2>
-            
-            {Number(gameState.Timer_Value) > 0 && (
-              <div className={`mt-12 font-black transition-all duration-300 ${
-                  timeLeft <= 3 && timeLeft > 0 
-                  ? "text-9xl text-red-500 scale-125" 
-                  : (timeLeft === 0 ? "text-8xl text-red-600" : "text-7xl text-gold-400")
-              }`}>
-                {timeLeft > 0 ? timeLeft : "Let's Go!"}
-              </div>
-            )}
+          <div className="absolute inset-0 grid grid-cols-2">
+            {/* Left side: QR Code */}
+            <div className="flex flex-col items-center justify-center border-r border-marine-700/50 bg-marine-900/50 p-8">
+               <h3 className="text-4xl font-bold text-gold-400 mb-8 uppercase tracking-wider">Scan to Join!</h3>
+               <div className="bg-white p-6 rounded-2xl shadow-[0_0_40px_rgba(250,204,21,0.2)] hover:scale-105 transition-transform duration-500">
+                 <img src="https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=https://konvensi-agm.vercel.app/" alt="QR Code" className="w-80 h-80" />
+               </div>
+               <p className="mt-10 text-3xl font-bold text-slate-300 tracking-wide">https://konvensi-agm.vercel.app/</p>
+            </div>
 
-            {totalUsers > 0 && (
-              <p className="text-3xl mt-6 font-bold text-slate-300 animate-fade-in-up">
-                Total Crew Joined: <span className="text-gold-400">{totalUsers}</span>
-              </p>
-            )}
+            {/* Right side: Waiting info */}
+            <div className="flex flex-col items-center justify-center p-8 text-center bg-marine-900">
+              <Anchor className={`w-32 h-32 text-gold-500 mx-auto mb-8 ${Number(gameState.Timer_Value) > 0 && timeLeft <= 10 ? 'animate-pulse text-red-500' : 'animate-bounce'}`} />
+              <h2 className="text-5xl lg:text-6xl font-black text-white drop-shadow-lg leading-tight">Waiting for sailors to board...</h2>
+              
+              {Number(gameState.Timer_Value) > 0 && (
+                <div className={`mt-12 font-black transition-all duration-300 ${
+                    timeLeft <= 3 && timeLeft > 0 
+                    ? "text-9xl text-red-500 scale-125" 
+                    : (timeLeft === 0 ? "text-8xl text-red-600" : "text-7xl text-gold-400")
+                }`}>
+                  {timeLeft > 0 ? timeLeft : "Let's Go!"}
+                </div>
+              )}
+
+              {totalUsers > 0 && gameState.Show_Player_Count !== false && (
+                <p className="text-3xl mt-6 font-bold text-slate-300 animate-fade-in-up">
+                  Total Crew Joined: <span className="text-gold-400 text-4xl">{totalUsers}</span>
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -330,8 +350,8 @@ export default function PresenterView() {
                 {leaderboard.length === 0 ? (
                 <p className="text-center text-slate-400 text-2xl">Calculating scores...</p>
               ) : (
-                visibleLeaderboard.map((u, index) => {
-                  const actualRank = (index + 1) + (revealRank - 1);
+                visibleLeaderboard.map((u) => {
+                  const actualRank = u.actualRank;
 
                   let styleClass = "bg-marine-700 text-slate-200 border-transparent";
                   let textClass = "text-gold-500";

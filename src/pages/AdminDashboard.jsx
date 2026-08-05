@@ -8,12 +8,15 @@ export default function AdminDashboard() {
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [revealRank, setRevealRank] = useState(10);
   const [joinTimer, setJoinTimer] = useState(60);
+  const [showPlayerCount, setShowPlayerCount] = useState(true);
+  const [playMusic, setPlayMusic] = useState(false);
+  const [leaderboardPage, setLeaderboardPage] = useState(1);
   
   useEffect(() => {
     api.getQuestions(activeSession).then(setQuestions);
   }, [activeSession]);
 
-  const handleUpdateState = (newStatus, customTimer = null) => {
+  const handleUpdateState = (newStatus, customTimer = null, overrides = {}) => {
     setStatus(newStatus);
     const currentQ = questions[currentQIndex];
     
@@ -23,7 +26,10 @@ export default function AdminDashboard() {
       Status: newStatus,
       Start_Time: (newStatus === 'QUESTION_ACTIVE' || customTimer !== null) ? new Date().toISOString() : '',
       Timer_Value: customTimer !== null ? customTimer : (newStatus === 'QUESTION_ACTIVE' && currentQ ? (currentQ.Timer || currentQ.Time_Limit || 0) : 0),
-      Leaderboard_Reveal: revealRank
+      Leaderboard_Reveal: overrides.Leaderboard_Reveal !== undefined ? overrides.Leaderboard_Reveal : revealRank,
+      Show_Player_Count: overrides.Show_Player_Count !== undefined ? overrides.Show_Player_Count : showPlayerCount,
+      Play_Music: overrides.Play_Music !== undefined ? overrides.Play_Music : playMusic,
+      Leaderboard_Page: overrides.Leaderboard_Page !== undefined ? overrides.Leaderboard_Page : leaderboardPage
     };
     
     api.updateState(stateObj);
@@ -41,7 +47,10 @@ export default function AdminDashboard() {
         Status: status === 'COMBINED' ? 'COMBINED' : 'LEADERBOARD',
         Start_Time: '',
         Timer_Value: 0,
-        Leaderboard_Reveal: nextRank
+        Leaderboard_Reveal: nextRank,
+        Show_Player_Count: showPlayerCount,
+        Play_Music: playMusic,
+        Leaderboard_Page: leaderboardPage
       });
     }
   };
@@ -97,11 +106,47 @@ export default function AdminDashboard() {
                 />
                 <span className="text-slate-300">seconds</span>
                 <button 
-                  onClick={() => handleUpdateState('WAITING', Number(joinTimer))} 
+                  onClick={() => {
+                    setPlayMusic(true);
+                    handleUpdateState('WAITING', Number(joinTimer), { Play_Music: true });
+                  }} 
                   className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-bold ml-auto"
                 >
                   Start Join Timer
                 </button>
+              </div>
+
+              <div className="mt-4 p-4 bg-marine-700 rounded-lg border border-marine-600 flex flex-wrap items-center justify-between gap-4">
+                 <div className="flex items-center gap-4">
+                   <label className="flex items-center gap-2 text-white font-bold cursor-pointer">
+                     <input 
+                       type="checkbox" 
+                       checked={showPlayerCount} 
+                       onChange={(e) => {
+                         setShowPlayerCount(e.target.checked);
+                         handleUpdateState(status, null, { Show_Player_Count: e.target.checked });
+                       }} 
+                       className="w-5 h-5 accent-gold-500"
+                     />
+                     Show Player Count
+                   </label>
+                 </div>
+                 <div className="flex items-center gap-4">
+                   <div className={`px-3 py-1 rounded font-bold ${playMusic ? 'bg-green-500/20 text-green-400' : 'bg-slate-500/20 text-slate-400'}`}>
+                     Music: {playMusic ? 'PLAYING' : 'STOPPED'}
+                   </div>
+                   {playMusic && (
+                     <button 
+                       onClick={() => {
+                         setPlayMusic(false);
+                         handleUpdateState(status, null, { Play_Music: false });
+                       }}
+                       className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded font-bold"
+                     >
+                       Stop Music
+                     </button>
+                   )}
+                 </div>
               </div>
             </section>
 
@@ -126,7 +171,10 @@ export default function AdminDashboard() {
                           Status: 'WAITING',
                           Start_Time: '',
                           Timer_Value: nextQ.Timer || nextQ.Time_Limit || 0,
-                          Leaderboard_Reveal: revealRank
+                          Leaderboard_Reveal: revealRank,
+                          Show_Player_Count: showPlayerCount,
+                          Play_Music: playMusic,
+                          Leaderboard_Page: leaderboardPage
                         });
                       }
                     }}
@@ -148,7 +196,10 @@ export default function AdminDashboard() {
                           Status: 'WAITING',
                           Start_Time: '',
                           Timer_Value: nextQ.Timer || nextQ.Time_Limit || 0,
-                          Leaderboard_Reveal: revealRank
+                          Leaderboard_Reveal: revealRank,
+                          Show_Player_Count: showPlayerCount,
+                          Play_Music: playMusic,
+                          Leaderboard_Page: leaderboardPage
                         });
                       }
                     }}
@@ -185,6 +236,24 @@ export default function AdminDashboard() {
                >
                  Reset to #10
                </button>
+               
+               <div className="mt-8">
+                 <h3 className="text-lg font-bold text-white mb-2">Leaderboard Page</h3>
+                 <div className="flex gap-2">
+                   {[1, 2, 3, 4].map(page => (
+                     <button
+                       key={page}
+                       onClick={() => {
+                         setLeaderboardPage(page);
+                         handleUpdateState(status, null, { Leaderboard_Page: page });
+                       }}
+                       className={`flex-1 py-2 rounded font-bold ${leaderboardPage === page ? 'bg-gold-500 text-marine-900' : 'bg-marine-600 text-white hover:bg-marine-500'}`}
+                     >
+                       Pg {page}
+                     </button>
+                   ))}
+                 </div>
+               </div>
             </section>
           </div>
         </main>
