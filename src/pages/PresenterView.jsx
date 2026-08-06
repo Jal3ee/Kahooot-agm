@@ -216,15 +216,8 @@ export default function PresenterView() {
     prevRevealRank.current = revealRank;
   }, [revealRank, gameState.Status]);
 
-  const leaderboardPage = Number(gameState.Leaderboard_Page) || 1;
-  const startIndex = (leaderboardPage - 1) * 10;
-  
-  let visibleLeaderboard = [];
-  if (leaderboardPage === 1) {
-    visibleLeaderboard = leaderboard.slice(0, 10).map((u, i) => ({...u, actualRank: i + 1})).filter(u => u.actualRank >= revealRank);
-  } else {
-    visibleLeaderboard = leaderboard.slice(startIndex, startIndex + 10).map((u, i) => ({...u, actualRank: startIndex + i + 1}));
-  }
+  // Get top 40 directly. Reveal rank hides top X based on admin.
+  const visibleLeaderboard = leaderboard.slice(0, 40).map((u, i) => ({...u, actualRank: i + 1})).filter(u => u.actualRank >= revealRank);
 
   const handleEnableAudio = () => {
     // Just a dummy action to register a user interaction in the browser so AudioContext can resume
@@ -235,11 +228,13 @@ export default function PresenterView() {
     }
   };
 
+  const isLeaderboard = gameState.Status === 'COMBINED' || gameState.Status === 'LEADERBOARD';
+
   return (
-    <div className="w-screen h-screen bg-black flex items-center justify-center overflow-hidden">
+    <div className={`w-screen ${isLeaderboard ? 'min-h-screen bg-marine-900 overflow-y-auto' : 'h-screen bg-black flex items-center justify-center overflow-hidden'}`}>
       <div 
-        className="bg-marine-900 text-white flex flex-col relative overflow-hidden shadow-2xl"
-        style={{ width: '100%', maxWidth: '177.78vh', aspectRatio: '16/9', containerType: 'size' }}
+        className={`bg-marine-900 text-white flex flex-col relative shadow-2xl ${isLeaderboard ? 'w-full min-h-screen' : 'overflow-hidden'}`}
+        style={isLeaderboard ? {} : { width: '100%', maxWidth: '177.78vh', aspectRatio: '16/9', containerType: 'size' }}
       >
       {gameState.Status === 'COMBINED' && revealRank <= 1 && (
         <div className="fixed inset-0 z-50 pointer-events-none">
@@ -341,12 +336,12 @@ export default function PresenterView() {
         )}
 
         {(gameState.Status === 'LEADERBOARD' || gameState.Status === 'COMBINED') && (
-          <div className="absolute inset-0 flex items-center justify-center p-8 overflow-hidden">
-            <div className="w-full max-w-4xl max-h-full flex flex-col bg-marine-800 rounded-3xl p-8 md:p-12 shadow-2xl border border-gold-500/30 overflow-hidden">
+          <div className="p-8 w-full flex items-center justify-center min-h-[50vh]">
+            <div className="w-full max-w-4xl flex flex-col bg-marine-800 rounded-3xl p-8 md:p-12 shadow-2xl border border-gold-500/30">
               <h2 className="text-4xl md:text-5xl font-bold text-center text-gold-400 mb-8 md:mb-12 flex justify-center items-center gap-4 flex-none">
                 <Trophy className="w-12 h-12 md:w-16 md:h-16" /> {gameState.Status === 'COMBINED' ? 'Final Voyage Standings' : 'Top Sailors'}
               </h2>
-              <div className="space-y-4 relative flex-1 overflow-y-auto min-h-0 pr-4 custom-scrollbar">
+              <div className="space-y-4 relative flex-1 pr-4">
                 {leaderboard.length === 0 ? (
                 <p className="text-center text-slate-400 text-2xl">Calculating scores...</p>
               ) : (

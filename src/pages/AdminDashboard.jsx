@@ -236,25 +236,7 @@ export default function AdminDashboard() {
                >
                  Reset to #10
                </button>
-               
-               <div className="mt-8">
-                 <h3 className="text-lg font-bold text-white mb-2">Leaderboard Page</h3>
-                 <div className="flex gap-2">
-                   {[1, 2, 3, 4].map(page => (
-                     <button
-                       key={page}
-                       onClick={() => {
-                         setLeaderboardPage(page);
-                         handleUpdateState(status, null, { Leaderboard_Page: page });
-                       }}
-                       className={`flex-1 py-2 rounded font-bold ${leaderboardPage === page ? 'bg-gold-500 text-marine-900' : 'bg-marine-600 text-white hover:bg-marine-500'}`}
-                     >
-                       Pg {page}
-                     </button>
-                   ))}
-                 </div>
-               </div>
-            </section>
+             </section>
           </div>
         </main>
       </div>
