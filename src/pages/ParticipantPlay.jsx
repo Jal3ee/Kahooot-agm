@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
+import { Trophy } from 'lucide-react';
 
 export default function ParticipantPlay() {
   const [gameState, setGameState] = useState({ Status: 'WAITING' });
   const [questions, setQuestions] = useState([]);
   const [answered, setAnswered] = useState(false);
   const lastQuestionNoRef = useRef(0);
-  const [score, setScore] = useState(0); // Mock local score
+  const [score, setScore] = useState(0); 
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [localStartTime, setLocalStartTime] = useState(null);
   
@@ -26,85 +27,59 @@ export default function ParticipantPlay() {
   useEffect(() => {
     if (!participantName) {
       navigate('/');
+      return;
     }
-    
-    // Adaptive Polling with Jitter
-    let timeoutId;
-    let isMounted = true;
 
-    const pollState = async () => {
-      try {
-        const state = await api.getState();
-        
-        if (!isMounted) return;
-
-        // When question changes, reset answered status
-        if (state.Current_Question_No !== lastQuestionNoRef.current) {
-           setAnswered(false);
-           lastQuestionNoRef.current = state.Current_Question_No;
-        }
-        
-        setGameState(state);
-        
-        // Fetch questions if we don't have them for this session yet
-        if (state.Active_Session_ID && (questions.length === 0 || state.Active_Session_ID !== activeSessionId)) {
-          api.getQuestions(state.Active_Session_ID).then(qs => {
-            if (isMounted) {
-              setQuestions(qs);
-              setActiveSessionId(state.Active_Session_ID);
-            }
-          });
-        }
-
-        // Determine polling delay based on game state
-        let baseDelay = 5000;
-        if (state.Status === 'QUESTION_ACTIVE') {
-          // If already answered, we don't need to poll aggressively
-          // We just need to know when state changes to LEADERBOARD
-          baseDelay = answered ? 4000 : 2500;
-        }
-        
-        // Add random jitter to stagger requests (0 to 1.5 seconds)
-        const jitter = Math.floor(Math.random() * 1500);
-        
-        timeoutId = setTimeout(pollState, baseDelay + jitter);
-
-      } catch(e) {
-        console.error("Polling error", e);
-        if (isMounted) timeoutId = setTimeout(pollState, 5000); // Retry after 5s on error
-      }
+    const fetchInitial = async () => {
+      const state = await api.getState();
+      setGameState(state);
     };
+    fetchInitial();
 
-    pollState();
-    
+    const unsubscribe = api.subscribeToState((newState) => {
+      setGameState(prev => {
+        if (newState.Current_Question_No !== prev.Current_Question_No || newState.Trap_Active !== prev.Trap_Active) {
+          setAnswered(false); // Reset answered if question or trap state changes
+        }
+        return newState;
+      });
+    });
+
     return () => {
-      isMounted = false;
-      clearTimeout(timeoutId);
+      if(unsubscribe) unsubscribe();
     };
-  }, [participantName, navigate, questions.length, activeSessionId, answered]);
+  }, [participantName, navigate]);
+
+  useEffect(() => {
+    if (gameState.Active_Session_ID && (questions.length === 0 || gameState.Active_Session_ID !== activeSessionId)) {
+      api.getQuestions(gameState.Active_Session_ID).then(qs => {
+        setQuestions(qs);
+        setActiveSessionId(gameState.Active_Session_ID);
+      });
+    }
+  }, [gameState.Active_Session_ID, activeSessionId, questions.length]);
 
   const handleAnswer = async (option) => {
     if (answered || gameState.Status !== 'QUESTION_ACTIVE') return;
     setAnswered(true);
     
-    const currentQ = questions.find(q => q.Question_No == gameState.Current_Question_No);
-    if (!currentQ) return;
-    
-    // Calculate response time based on local start time
+    let isCorrect = false;
+    let points = 0;
     const startTime = localStartTime || (gameState.Start_Time ? new Date(gameState.Start_Time).getTime() : Date.now());
     const now = Date.now();
     const responseTimeSecs = Math.max(0, (now - startTime) / 1000);
-    
-    // Calculate points based purely on speed (milliseconds), completely ignoring timer limit.
-    const isCorrect = option === currentQ.Correct_Option;
-    let points = 0;
-    
-    if (isCorrect) {
-       const responseTimeMs = now - startTime;
-       // Base points 1000. Subtract 0.04 points per millisecond (40 points lost per second).
-       let calcPoints = 1000 - (responseTimeMs / 25);
-       // Pembulatan poin sesuai permintaan
-       points = Math.max(500, Math.round(calcPoints));
+
+    if (!gameState.Trap_Active) {
+      const currentQ = questions.find(q => q.Question_No == gameState.Current_Question_No);
+      if (!currentQ) return;
+      
+      isCorrect = option === currentQ.Correct_Option;
+      
+      if (isCorrect) {
+         const responseTimeMs = now - startTime;
+         let calcPoints = 1000 - (responseTimeMs / 25);
+         points = Math.max(500, Math.round(calcPoints));
+      }
     }
     
     setScore(prev => prev + points);
@@ -112,7 +87,7 @@ export default function ParticipantPlay() {
     await api.submitAnswer({
       sessionId: gameState.Active_Session_ID,
       combinedName: participantName,
-      questionNo: gameState.Current_Question_No,
+      questionNo: gameState.Trap_Active ? 999 : gameState.Current_Question_No, // 999 for traps to separate data
       answeredOption: option,
       responseTime: parseFloat(responseTimeSecs.toFixed(2)),
       isCorrect: isCorrect,
@@ -121,76 +96,105 @@ export default function ParticipantPlay() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-marine-900 p-4 sm:p-6 text-center">
-      <div className="animate-fade-in-up bg-marine-800 p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-2xl border border-gold-500/30 relative overflow-hidden">
-        <h2 className="text-xl font-bold text-slate-300 mb-2">{participantName}</h2>
-        <div className="text-gold-400 font-bold mb-6 text-lg">
-          Score: <span key={score} className="inline-block animate-score-pop">{score}</span>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 text-center relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-10 right-10 w-32 h-32 bg-poster-blue-light/20 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute bottom-10 left-10 w-48 h-48 bg-poster-red-bright/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div className="animate-fade-in-up glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md shadow-2xl relative z-10 border border-white/10 flex flex-col items-center">
+        
+        {/* Logos */}
+        <div className="flex items-center justify-center gap-6 mb-4">
+          <img src="/Lentera.png" alt="Lentera Logo" className="h-10 object-contain" />
+          <img src="/Logo_HCGA.png" alt="HCGA Logo" className="h-10 object-contain" />
+        </div>
+
+        <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 mb-2">{participantName}</h2>
+        <div className="text-poster-cyan font-bold mb-8 text-xl tracking-wider">
+          SCORE <span key={score} className="inline-block animate-score-pop ml-2">{score}</span>
         </div>
 
         {(gameState.Status === 'WAITING' || gameState.Status === 'FINISHED') && (
-          <div className="animate-pulse-glow bg-marine-700/50 rounded-2xl py-12 px-4 border border-ocean-500/30">
-            <h3 className="text-2xl font-bold text-white mb-2">You're in!</h3>
-            <p className="text-slate-400">Waiting for the captain to start the game...</p>
+          <div className="bg-black/30 rounded-2xl py-12 px-4 border border-poster-cyan/30 backdrop-blur-sm shadow-md">
+            <h3 className="text-3xl font-black text-white mb-3 drop-shadow-md">YOU'RE IN!</h3>
+            <p className="text-gray-300 font-medium">Waiting for the captain to start the game...</p>
           </div>
         )}
 
         {gameState.Status === 'QUESTION_ACTIVE' && (() => {
-          const currentQ = questions.find(q => q.Question_No == gameState.Current_Question_No);
+          let displayQuestion = null;
+          if (gameState.Trap_Active) {
+            displayQuestion = {
+              Question: gameState.Trap_Question,
+              Option_A: gameState.Trap_A,
+              Option_B: gameState.Trap_B,
+              Option_C: gameState.Trap_C,
+              Option_D: gameState.Trap_D
+            };
+          } else {
+            displayQuestion = questions.find(q => q.Question_No == gameState.Current_Question_No);
+          }
+
           return (
-            <div className="space-y-4 animate-pop-in w-full">
-              <div className="text-3xl sm:text-4xl font-bold text-white mb-2 animate-fade-in-up">
-                {answered ? "Answer Recorded!" : "Ready?"}
+            <div className="space-y-6 animate-pop-in w-full">
+              <div className="text-3xl sm:text-4xl font-black text-white mb-2 animate-fade-in-up drop-shadow-md">
+                {answered ? "ANSWER RECORDED!" : "READY?"}
               </div>
-              {currentQ && (
-                <div className="text-lg sm:text-xl font-semibold text-slate-200 mb-6 px-2 break-words whitespace-normal leading-tight">
-                  {currentQ.Question_Text}
+              {displayQuestion && (
+                <div className="text-lg sm:text-xl font-medium text-gray-200 mb-6 px-2 break-words whitespace-normal leading-relaxed">
+                  {displayQuestion.Question}
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 w-full">
+              
+              <div className="grid grid-cols-2 gap-4 sm:gap-5 w-full">
                   <button 
                     onClick={() => handleAnswer('A')} 
                     disabled={answered}
-                    className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-200 bg-red-500 min-h-[120px] sm:min-h-[140px] rounded-2xl text-white font-bold shadow-[0_6px_0_0_rgba(185,28,28,1)] active:shadow-none active:translate-y-[6px] border-2 border-red-400 flex flex-col items-center justify-center p-2`}
+                    className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-300 bg-gradient-to-br from-red-600 to-poster-red min-h-[140px] rounded-2xl text-white font-bold shadow-[0_8px_0_0_rgba(153,0,0,1)] active:shadow-none active:translate-y-[8px] border border-red-400/50 flex flex-col items-center justify-center p-3 relative overflow-hidden`}
                   >
-                    <span className="text-3xl sm:text-4xl mb-1">A</span>
-                    <span className="text-sm sm:text-base px-1 break-words leading-tight w-full">{currentQ?.Option_A || ''}</span>
+                    <div className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition-opacity"></div>
+                    <span className="text-4xl sm:text-5xl mb-2 drop-shadow-md">A</span>
+                    <span className="text-sm sm:text-base px-2 break-words leading-tight w-full font-medium">{displayQuestion?.Option_A || ''}</span>
                   </button>
                   <button 
                     onClick={() => handleAnswer('B')} 
                     disabled={answered}
-                    className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-200 bg-blue-500 min-h-[120px] sm:min-h-[140px] rounded-2xl text-white font-bold shadow-[0_6px_0_0_rgba(29,78,216,1)] active:shadow-none active:translate-y-[6px] border-2 border-blue-400 flex flex-col items-center justify-center p-2`}
+                    className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-300 bg-gradient-to-br from-blue-500 to-poster-blue-light min-h-[140px] rounded-2xl text-white font-bold shadow-[0_8px_0_0_rgba(9,23,69,1)] active:shadow-none active:translate-y-[8px] border border-blue-400/50 flex flex-col items-center justify-center p-3 relative overflow-hidden`}
                   >
-                    <span className="text-3xl sm:text-4xl mb-1">B</span>
-                    <span className="text-sm sm:text-base px-1 break-words leading-tight w-full">{currentQ?.Option_B || ''}</span>
+                    <div className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition-opacity"></div>
+                    <span className="text-4xl sm:text-5xl mb-2 drop-shadow-md">B</span>
+                    <span className="text-sm sm:text-base px-2 break-words leading-tight w-full font-medium">{displayQuestion?.Option_B || ''}</span>
                   </button>
                   <button 
                     onClick={() => handleAnswer('C')} 
                     disabled={answered}
-                    className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-200 bg-yellow-500 min-h-[120px] sm:min-h-[140px] rounded-2xl text-white font-bold shadow-[0_6px_0_0_rgba(180,83,9,1)] active:shadow-none active:translate-y-[6px] border-2 border-yellow-400 flex flex-col items-center justify-center p-2`}
+                    className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-300 bg-gradient-to-br from-yellow-500 to-yellow-600 min-h-[140px] rounded-2xl text-white font-bold shadow-[0_8px_0_0_rgba(161,98,7,1)] active:shadow-none active:translate-y-[8px] border border-yellow-400/50 flex flex-col items-center justify-center p-3 relative overflow-hidden`}
                   >
-                    <span className="text-3xl sm:text-4xl mb-1">C</span>
-                    <span className="text-sm sm:text-base px-1 break-words leading-tight w-full">{currentQ?.Option_C || ''}</span>
+                    <div className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition-opacity"></div>
+                    <span className="text-4xl sm:text-5xl mb-2 drop-shadow-md">C</span>
+                    <span className="text-sm sm:text-base px-2 break-words leading-tight w-full font-medium">{displayQuestion?.Option_C || ''}</span>
                   </button>
                   <button 
                     onClick={() => handleAnswer('D')} 
                     disabled={answered}
-                    className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-200 bg-green-500 min-h-[120px] sm:min-h-[140px] rounded-2xl text-white font-bold shadow-[0_6px_0_0_rgba(21,128,61,1)] active:shadow-none active:translate-y-[6px] border-2 border-green-400 flex flex-col items-center justify-center p-2`}
+                    className={`${answered ? 'opacity-50' : 'hover:scale-105 active:scale-95'} transition-all duration-300 bg-gradient-to-br from-green-500 to-emerald-600 min-h-[140px] rounded-2xl text-white font-bold shadow-[0_8px_0_0_rgba(6,78,59,1)] active:shadow-none active:translate-y-[8px] border border-green-400/50 flex flex-col items-center justify-center p-3 relative overflow-hidden`}
                   >
-                    <span className="text-3xl sm:text-4xl mb-1">D</span>
-                    <span className="text-sm sm:text-base px-1 break-words leading-tight w-full">{currentQ?.Option_D || ''}</span>
+                    <div className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition-opacity"></div>
+                    <span className="text-4xl sm:text-5xl mb-2 drop-shadow-md">D</span>
+                    <span className="text-sm sm:text-base px-2 break-words leading-tight w-full font-medium">{displayQuestion?.Option_D || ''}</span>
                   </button>
               </div>
             </div>
           );
         })()}
 
-        {gameState.Status === 'LEADERBOARD' && (
-           <div className="py-12 animate-fade-in-up">
-             <div className="w-16 h-16 bg-gold-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg animate-pulse">
-                <span className="text-marine-900 font-bold text-2xl">🏆</span>
+        {(gameState.Status === 'LEADERBOARD' || gameState.Status === 'COMBINED') && (
+           <div className="py-12 animate-fade-in-up flex flex-col items-center">
+             <div className="w-20 h-20 bg-gradient-to-br from-poster-cyan to-blue-500 rounded-full flex items-center justify-center mb-6 shadow-lg">
+                <Trophy size={40} className="text-white" />
              </div>
-             <h3 className="text-2xl font-bold text-gold-400 mb-2">Look at the big screen!</h3>
+             <h3 className="text-3xl font-black text-white mb-2 drop-shadow-md">LOOK AT THE BIG SCREEN!</h3>
+             <p className="text-poster-cyan tracking-widest uppercase font-semibold">Leaderboard Time</p>
            </div>
         )}
       </div>

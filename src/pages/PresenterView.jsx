@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
-import { Trophy, Anchor, Volume2 } from 'lucide-react';
+import { Trophy, Volume2 } from 'lucide-react';
 import Confetti from 'react-confetti';
 
 const playCelebrationSound = (rank) => {
@@ -78,8 +78,8 @@ export default function PresenterView() {
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [totalUsers, setTotalUsers] = useState(0);
   const [localStartTime, setLocalStartTime] = useState(null);
+  const [trapWinner, setTrapWinner] = useState(null);
 
-  // Confetti size
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
 
   useEffect(() => {
@@ -88,48 +88,64 @@ export default function PresenterView() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Initial fetch and subscription
   useEffect(() => {
-    let timerInterval;
+    const fetchInitial = async () => {
+      const state = await api.getState();
+      setGameState(state);
+    };
+    fetchInitial();
 
-    const pollInterval = setInterval(async () => {
-      try {
-        const state = await api.getState();
-        setGameState(state);
-
-        // Fetch questions if missing or session changed
-        if (state.Active_Session_ID && (questions.length === 0 || state.Active_Session_ID !== activeSessionId)) {
-          const qs = await api.getQuestions(state.Active_Session_ID);
-          setQuestions(qs);
-          setActiveSessionId(state.Active_Session_ID);
-        }
-
-        // Fetch leaderboard if in leaderboard state
-        if (state.Status === 'LEADERBOARD' || state.Status === 'COMBINED') {
-          // Use combined leaderboard logic if COMBINED
-          if (state.Status === 'COMBINED') {
-            const clb = await api.getCombinedLeaderboard();
-            setLeaderboard(clb);
-          } else {
-            const lb = await api.getLeaderboard(state.Active_Session_ID);
-            setLeaderboard(lb);
-          }
-        }
-
-        // Fetch users if in waiting state to show count
-        if (state.Status === 'WAITING') {
-          const data = await api.getJoinedCount();
-          setTotalUsers(data.count || 0);
-        }
-
-      } catch (e) {
-        console.error("Polling error", e);
+    const unsubscribe = api.subscribeToState((newState) => {
+      setGameState(newState);
+      if (!newState.Trap_Active) {
+        setTrapWinner(null);
       }
-    }, 2000);
+    });
 
-    return () => clearInterval(pollInterval);
-  }, [questions.length, activeSessionId]);
+    const unsubscribeScores = api.subscribeToScores((newScore) => {
+      if (newScore.question_no === 999 && newScore.answered_option === 'A') {
+        setTrapWinner((prev) => {
+          if (!prev) return newScore.combined_name;
+          return prev;
+        });
+      }
+    });
 
-  // Capture local start time when question becomes active
+    return () => {
+      if(unsubscribe) unsubscribe();
+      if(unsubscribeScores) unsubscribeScores();
+    };
+  }, []);
+
+  // Sync questions and users based on state changes
+  useEffect(() => {
+    const syncData = async () => {
+      if (gameState.Active_Session_ID && (questions.length === 0 || gameState.Active_Session_ID !== activeSessionId)) {
+        const qs = await api.getQuestions(gameState.Active_Session_ID);
+        setQuestions(qs);
+        setActiveSessionId(gameState.Active_Session_ID);
+      }
+
+      if (gameState.Status === 'WAITING') {
+        const data = await api.getJoinedCount();
+        setTotalUsers(data.count || 0);
+      }
+
+      if (gameState.Status === 'LEADERBOARD' || gameState.Status === 'COMBINED') {
+        if (gameState.Status === 'COMBINED') {
+          const clb = await api.getCombinedLeaderboard();
+          setLeaderboard(clb);
+        } else {
+          const lb = await api.getLeaderboard(gameState.Active_Session_ID);
+          setLeaderboard(lb);
+        }
+      }
+    };
+    syncData();
+  }, [gameState.Status, gameState.Active_Session_ID, gameState.Current_Question_No, gameState.Leaderboard_Page, activeSessionId, questions.length]);
+
+
   useEffect(() => {
     if (gameState.Status === 'QUESTION_ACTIVE') {
       setLocalStartTime(prev => prev || Date.now());
@@ -138,7 +154,6 @@ export default function PresenterView() {
     }
   }, [gameState.Status, gameState.Current_Question_No]);
 
-  // Handle local countdown timer
   useEffect(() => {
     let countdownInterval;
     if (gameState.Status === 'QUESTION_ACTIVE' || gameState.Status === 'WAITING') {
@@ -186,7 +201,6 @@ export default function PresenterView() {
   }, []);
 
   useEffect(() => {
-    // Play Captain Jack Sparrow theme if Admin toggled Play_Music to true
     if (gameState.Play_Music === true) {
       if (bgMusicRef.current && bgMusicRef.current.paused) {
         bgMusicRef.current.play().catch(e => console.error("Audio play blocked", e));
@@ -199,184 +213,233 @@ export default function PresenterView() {
     }
   }, [gameState.Play_Music]);
 
-  const currentQ = questions.find(q => q.Question_No == gameState.Current_Question_No) || null;
-  const revealRank = gameState.Leaderboard_Reveal || 10;
 
-  // Track previous revealRank to play sound
-  const prevRevealRank = useRef(revealRank);
+  // Determine what to display
+  let displayQuestion = null;
+  if (gameState.Trap_Active) {
+    displayQuestion = {
+      Question: gameState.Trap_Question,
+      Option_A: gameState.Trap_A,
+      Option_B: gameState.Trap_B,
+      Option_C: gameState.Trap_C,
+      Option_D: gameState.Trap_D,
+      Correct_Option: null // No correct option in a trap
+    };
+  } else {
+    displayQuestion = questions.find(q => String(q.Question_No) === String(gameState.Current_Question_No));
+  }
+
+  // --- Leaderboard logic ---
+  const page = gameState.Leaderboard_Page || 1;
+  const pageSize = 10;
+  const startIdx = (page - 1) * pageSize;
+  const visibleLeaderboard = leaderboard.slice(startIdx, startIdx + pageSize);
+
+  const [revealedCount, setRevealedCount] = useState(() => {
+    const stored = sessionStorage.getItem('revealedScores');
+    return stored ? parseInt(stored, 10) : 0;
+  });
+
   useEffect(() => {
-    if (gameState.Status === 'COMBINED' || gameState.Status === 'LEADERBOARD') {
-      if (revealRank < prevRevealRank.current) {
-        if (revealRank === 3) playCelebrationSound(3);
-        else if (revealRank === 2) playCelebrationSound(2);
-        else if (revealRank === 1) playCelebrationSound(1);
-        else playCelebrationSound(revealRank);
-      }
+    if (gameState.Status === 'LEADERBOARD' || gameState.Status === 'COMBINED') {
+       const targetReveal = pageSize - (gameState.Leaderboard_Reveal - 1);
+       const targetCount = Math.max(0, Math.min(pageSize, targetReveal));
+       
+       if (targetCount > revealedCount) {
+          setRevealedCount(targetCount);
+          const newlyRevealedRank = startIdx + pageSize - targetCount + 1;
+          
+          if (newlyRevealedRank === 1 && visibleLeaderboard.length > 0) {
+             playCelebrationSound(1); // Winner
+          } else if (newlyRevealedRank === 2) {
+             playCelebrationSound(2); 
+          } else if (newlyRevealedRank === 3) {
+             playCelebrationSound(3); 
+          } else {
+             playCelebrationSound(newlyRevealedRank); // Generic pop for others
+          }
+       }
+       sessionStorage.setItem('revealedScores', revealedCount.toString());
+    } else {
+       sessionStorage.setItem('revealedScores', '0');
     }
-    prevRevealRank.current = revealRank;
-  }, [revealRank, gameState.Status]);
+  }, [revealedCount, gameState.Status, startIdx, visibleLeaderboard, gameState.Leaderboard_Reveal, pageSize]);
 
-  // Get top 40 directly. Reveal rank hides top X based on admin.
-  const visibleLeaderboard = leaderboard.slice(0, 40).map((u, i) => ({...u, actualRank: i + 1})).filter(u => u.actualRank >= revealRank);
-
-  const handleEnableAudio = () => {
-    // Just a dummy action to register a user interaction in the browser so AudioContext can resume
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (AudioContext) {
-      const ctx = new AudioContext();
-      ctx.resume();
-    }
-  };
-
-  const isLeaderboard = gameState.Status === 'COMBINED' || gameState.Status === 'LEADERBOARD';
+  const showWinnerConfetti = (gameState.Status === 'LEADERBOARD' || gameState.Status === 'COMBINED') && 
+                              page === 1 && revealedCount >= 1 && visibleLeaderboard.length > 0;
 
   return (
-    <div className={`w-screen ${isLeaderboard ? 'min-h-screen bg-marine-900 overflow-y-auto' : 'h-screen bg-black flex items-center justify-center overflow-hidden'}`}>
-      <div 
-        className={`bg-marine-900 text-white flex flex-col relative shadow-2xl ${isLeaderboard ? 'w-full min-h-screen' : 'overflow-hidden'}`}
-        style={isLeaderboard ? {} : { width: '100%', maxWidth: '177.78vh', aspectRatio: '16/9', containerType: 'size' }}
-      >
-      {gameState.Status === 'COMBINED' && revealRank <= 1 && (
-        <div className="fixed inset-0 z-50 pointer-events-none">
-          <Confetti width={windowSize.width} height={windowSize.height} recycle={true} numberOfPieces={500} />
-        </div>
+    <div className="min-h-screen text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
+
+      {/* Global Logos (Top Left) */}
+      <div className="absolute top-6 left-6 flex items-center gap-6 z-50">
+        <img src="/Lentera.png" alt="Lentera Logo" className="h-16 object-contain drop-shadow-xl" />
+        <img src="/Logo_HCGA.png" alt="HCGA Logo" className="h-16 object-contain drop-shadow-xl" />
+      </div>
+
+      {showWinnerConfetti && <Confetti width={windowSize.width} height={windowSize.height} recycle={false} numberOfPieces={800} gravity={0.15} />}
+
+      <div className="w-full max-w-5xl z-10">
+      
+      {gameState.Play_Music && (
+          <div className="absolute top-4 right-4 flex items-center gap-2 text-poster-cyan bg-white/10 px-4 py-2 rounded-full glass-panel">
+              <Volume2 className="animate-pulse" size={20} />
+              <span className="text-sm font-medium">BGM Playing</span>
+          </div>
       )}
-      <header className="p-6 flex justify-between items-center bg-marine-800 shadow-md border-b border-marine-700 relative z-40">
-        <div className="flex items-center gap-4">
-          <img src="/logo_agm-.png" alt="AGM Logo" className="h-16 bg-white p-1 rounded" />
-          <img src="/Konvensi_Logo.jpeg" alt="Convention Logo" className="h-16 rounded" />
-          <button onClick={handleEnableAudio} className="ml-4 p-2 bg-marine-700 hover:bg-marine-600 rounded-full transition-colors" title="Click me once to enable celebration sounds!">
-            <Volume2 className="w-6 h-6 text-gold-400" />
-          </button>
-        </div>
-        <div className="text-right">
-          <h1 className="text-3xl font-bold text-gold-400 uppercase tracking-widest">Join at: https://s.id/CCAGM</h1>
-          <p className="text-xl text-slate-300">Session: <span className="font-bold text-white">{gameState.Active_Session_ID || 'TBA'}</span></p>
-        </div>
-      </header>
 
-      <main className="flex-1 relative z-40 overflow-hidden">
+      <main className="w-full flex-grow flex flex-col items-center justify-center space-y-8">
+        
         {gameState.Status === 'WAITING' && (
-          <div className="absolute inset-0 grid grid-cols-2">
-            {/* Left side: QR Code */}
-            <div className="flex flex-col items-center justify-center border-r border-marine-700/50 bg-marine-900/50 p-8">
-               <h3 className="text-4xl font-bold text-gold-400 mb-8 uppercase tracking-wider">Scan to Join!</h3>
-               <div className="bg-white p-6 rounded-2xl shadow-[0_0_40px_rgba(250,204,21,0.2)] hover:scale-105 transition-transform duration-500">
-                 <img src="https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=https://konvensi-agm.vercel.app/" alt="QR Code" className="w-80 h-80" />
-               </div>
-               <p className="mt-10 text-3xl font-bold text-slate-300 tracking-wide">https://konvensi-agm.vercel.app/</p>
+          <div className="text-center w-full animate-fade-in-up">
+            <h1 className="text-6xl font-black mb-6 tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400">
+               HCGA SHARING SESSION
+            </h1>
+            <p className="text-2xl text-poster-cyan font-semibold tracking-widest mb-12 uppercase">
+               Learn, Share, Grow Together
+            </p>
+            
+            <div className="glass-panel p-12 rounded-3xl inline-block shadow-2xl relative border border-white/20">
+               <div className="absolute inset-0 bg-gradient-to-br from-poster-blue-light/20 to-poster-red/20 rounded-3xl pointer-events-none"></div>
+               <p className="text-2xl text-gray-300 mb-6 font-medium relative z-10">Join at <span className="text-white font-bold tracking-wider">hcga.vercel.app</span></p>
+               {gameState.Active_Session_ID && (
+                  <div className="text-7xl font-black tracking-widest text-poster-cyan mb-8 relative z-10">
+                    {gameState.Active_Session_ID}
+                  </div>
+               )}
+               {gameState.Show_Player_Count !== false && (
+                  <div className="flex items-center justify-center gap-3 text-3xl font-bold bg-white/10 py-4 px-8 rounded-full border border-white/20 relative z-10">
+                     <span className="text-white">Participants Joined:</span>
+                     <span className="text-poster-red-bright animate-score-pop">{totalUsers}</span>
+                  </div>
+               )}
             </div>
-
-            {/* Right side: Waiting info */}
-            <div className="flex flex-col items-center justify-center p-8 text-center bg-marine-900">
-              <Anchor className={`w-32 h-32 text-gold-500 mx-auto mb-8 ${Number(gameState.Timer_Value) > 0 && timeLeft <= 10 ? 'animate-pulse text-red-500' : 'animate-bounce'}`} />
-              <h2 className="text-5xl lg:text-6xl font-black text-white drop-shadow-lg leading-tight">Waiting for sailors to board...</h2>
-              
-              {Number(gameState.Timer_Value) > 0 && (
-                <div className={`mt-12 font-black transition-all duration-300 ${
-                    timeLeft <= 3 && timeLeft > 0 
-                    ? "text-9xl text-red-500 scale-125" 
-                    : (timeLeft === 0 ? "text-8xl text-red-600" : "text-7xl text-gold-400")
-                }`}>
-                  {timeLeft > 0 ? timeLeft : "Let's Go!"}
+            
+            {Number(gameState.Timer_Value) > 0 && (
+                <div className="mt-12">
+                   <div className="text-2xl text-gray-400 mb-2 font-medium">Starting in</div>
+                   <div className="text-6xl font-black text-poster-red-bright animate-pulse">{timeLeft}</div>
                 </div>
-              )}
-
-              {totalUsers > 0 && gameState.Show_Player_Count !== false && (
-                <p className="text-3xl mt-6 font-bold text-slate-300 animate-fade-in-up">
-                  Total Crew Joined: <span className="text-gold-400 text-4xl">{totalUsers}</span>
-                </p>
-              )}
-            </div>
+            )}
           </div>
         )}
 
-        {gameState.Status === 'QUESTION_ACTIVE' && currentQ && (
-          <div className="absolute inset-0 flex flex-col p-6 md:p-10 text-center bg-marine-900 overflow-hidden">
-            {/* Question Text (25% height) */}
-            <div className="w-full flex items-center justify-center mb-2" style={{ height: '25%' }}>
-              <h2 className={`font-bold leading-tight break-words w-full overflow-hidden text-ellipsis ${currentQ.Question_Text?.length > 150 ? 'text-2xl md:text-3xl lg:text-4xl' : currentQ.Question_Text?.length > 80 ? 'text-3xl md:text-4xl lg:text-5xl' : 'text-4xl md:text-5xl lg:text-6xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>
-                {currentQ.Question_Text}
-              </h2>
+        {(gameState.Status === 'QUESTION_ACTIVE' || gameState.Status === 'ANSWER_REVEAL') && (
+          displayQuestion ? (
+            <div className="w-full flex flex-col items-center animate-fade-in-up">
+
+            <div className="w-full flex justify-between items-center mb-8 px-8">
+              <div className="text-3xl font-black text-white bg-white/10 px-6 py-2 rounded-full border border-white/20 glass-panel">
+                 {gameState.Trap_Active ? '⚠️ JEBAKAN' : `Q${gameState.Current_Question_No}`}
+              </div>
+              <div className={`text-6xl font-black ${timeLeft <= 3 ? 'text-poster-red-bright animate-pulse' : 'text-white'}`}>
+                {timeLeft}
+              </div>
             </div>
             
-            {/* Options Grid (60% height) */}
-            <div className="w-full grid grid-cols-2 gap-4 md:gap-6" style={{ height: '60%' }}>
-              <div className="flex items-center bg-red-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-red-600 break-words text-left overflow-hidden h-full min-h-0">
-                <span className="mr-4 md:mr-6 opacity-75 shrink-0 text-3xl md:text-5xl">A.</span> 
-                <span className={`break-words leading-tight overflow-hidden text-ellipsis w-full ${currentQ.Option_A?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_A}</span>
+            {gameState.Trap_Active && trapWinner ? (
+              <div className="flex flex-col items-center justify-center animate-pop-in my-16 bg-poster-red-bright/20 border-4 border-poster-red-bright p-12 rounded-3xl backdrop-blur-md shadow-[0_0_50px_rgba(255,59,75,0.5)]">
+                 <h2 className="text-4xl text-white font-bold mb-4 uppercase tracking-widest text-center">GOTCHA!</h2>
+                 <p className="text-2xl text-gray-200 mb-8 text-center">The first person to fall for the trap is:</p>
+                 <div className="text-7xl md:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-r from-poster-cyan to-white drop-shadow-2xl text-center">
+                    {trapWinner}
+                 </div>
               </div>
-              <div className="flex items-center bg-blue-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-blue-600 break-words text-left overflow-hidden h-full min-h-0">
-                <span className="mr-4 md:mr-6 opacity-75 shrink-0 text-3xl md:text-5xl">B.</span> 
-                <span className={`break-words leading-tight overflow-hidden text-ellipsis w-full ${currentQ.Option_B?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_B}</span>
-              </div>
-              <div className="flex items-center bg-yellow-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-yellow-600 break-words text-left overflow-hidden h-full min-h-0">
-                <span className="mr-4 md:mr-6 opacity-75 shrink-0 text-3xl md:text-5xl">C.</span> 
-                <span className={`break-words leading-tight overflow-hidden text-ellipsis w-full ${currentQ.Option_C?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_C}</span>
-              </div>
-              <div className="flex items-center bg-green-500 p-4 md:p-6 rounded-2xl font-bold shadow-xl border-4 border-green-600 break-words text-left overflow-hidden h-full min-h-0">
-                <span className="mr-4 md:mr-6 opacity-75 shrink-0 text-3xl md:text-5xl">D.</span> 
-                <span className={`break-words leading-tight overflow-hidden text-ellipsis w-full ${currentQ.Option_D?.length > 60 ? 'text-lg md:text-xl lg:text-2xl' : 'text-xl md:text-3xl lg:text-4xl'}`} style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{currentQ.Option_D}</span>
-              </div>
-            </div>
+            ) : (
+              <h2 className="text-5xl font-bold text-center mb-16 leading-tight max-w-4xl px-4 drop-shadow-lg">
+                {displayQuestion.Question}
+              </h2>
+            )}
 
-            {/* Timer (15% height) */}
-            <div className="w-full flex justify-center items-center" style={{ height: '15%' }}>
-              {Number(gameState.Timer_Value) > 0 && (
-                <div className={`font-black transition-all duration-300 text-6xl md:text-7xl lg:text-8xl ${
-                    timeLeft <= 3 && timeLeft > 0 
-                    ? "text-red-500 scale-125" 
-                    : (timeLeft === 0 ? "text-red-600" : "text-gold-400")
-                }`}>
-                  {timeLeft > 0 ? timeLeft : "Time's Up!"}
-                </div>
-              )}
+            {!trapWinner && (
+              <div className="grid grid-cols-2 gap-6 w-full max-w-5xl px-4">
+                {['A', 'B', 'C', 'D'].map((opt) => {
+                  const text = displayQuestion[`Option_${opt}`];
+                  if (!text) return null;
+                
+                let isCorrect = displayQuestion.Correct_Option === opt;
+                let showReveal = gameState.Status === 'ANSWER_REVEAL' && !gameState.Trap_Active; // No reveal for traps
+                
+                let bgColor = 'bg-white/10 border-white/20';
+                let opacity = 'opacity-100';
+                
+                if (showReveal) {
+                   if (isCorrect) {
+                      bgColor = 'bg-green-600 border-green-400 shadow-xl';
+                   } else {
+                      opacity = 'opacity-40';
+                   }
+                }
+
+                return (
+                  <div key={opt} className={`glass-panel border p-8 rounded-2xl flex items-center transition-all duration-500 ${bgColor} ${opacity}`}>
+                    <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold mr-6 shrink-0">
+                      {opt}
+                    </div>
+                    <div className="text-3xl font-medium break-words w-full">{text}</div>
+                  </div>
+                );
+              })}
             </div>
+            )}
           </div>
+          ) : (
+            <div className="text-center w-full animate-fade-in-up mt-20">
+              <div className="inline-block glass-panel p-8 rounded-3xl border border-white/20">
+                 <h2 className="text-4xl text-white font-bold mb-4">Loading Question...</h2>
+                 <p className="text-xl text-gray-400">Please make sure questions are available for this session.</p>
+              </div>
+            </div>
+          )
         )}
 
         {(gameState.Status === 'LEADERBOARD' || gameState.Status === 'COMBINED') && (
-          <div className="p-8 w-full flex items-center justify-center min-h-[50vh]">
-            <div className="w-full max-w-4xl flex flex-col bg-marine-800 rounded-3xl p-8 md:p-12 shadow-2xl border border-gold-500/30">
-              <h2 className="text-4xl md:text-5xl font-bold text-center text-gold-400 mb-8 md:mb-12 flex justify-center items-center gap-4 flex-none">
-                <Trophy className="w-12 h-12 md:w-16 md:h-16" /> {gameState.Status === 'COMBINED' ? 'Final Voyage Standings' : 'Top Sailors'}
+          <div className="w-full max-w-4xl animate-fade-in-up">
+            <div className="text-center mb-12">
+              <Trophy size={80} className="mx-auto text-poster-cyan mb-6" />
+              <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-poster-cyan to-blue-400 tracking-wider uppercase drop-shadow-md">
+                {gameState.Status === 'COMBINED' ? 'Global Leaderboard' : 'Session Leaderboard'}
               </h2>
-              <div className="space-y-4 relative flex-1 pr-4">
-                {leaderboard.length === 0 ? (
-                <p className="text-center text-slate-400 text-2xl">Calculating scores...</p>
-              ) : (
-                visibleLeaderboard.map((u) => {
-                  const actualRank = u.actualRank;
+              <p className="text-xl text-gray-400 mt-2">Page {page}</p>
+            </div>
 
-                  let styleClass = "bg-marine-700 text-slate-200 border-transparent";
-                  let textClass = "text-gold-500";
+            <div className="space-y-4">
+              {visibleLeaderboard.map((user, index) => {
+                 const rank = startIdx + index + 1;
+                 const isRevealed = (pageSize - index) <= revealedCount;
+                 
+                 // Styling for top 3
+                 let rankStyle = "bg-white/10 text-white";
+                 let rowStyle = "glass-panel";
+                 let nameStyle = "text-white";
+                 
+                 if (rank === 1) { rankStyle = "bg-yellow-500 text-yellow-900 shadow-lg"; rowStyle = "glass-panel bg-yellow-900/40 border-yellow-500/50"; nameStyle = "text-yellow-400 font-bold"; }
+                 else if (rank === 2) { rankStyle = "bg-gray-300 text-gray-800 shadow-lg"; rowStyle = "glass-panel bg-gray-800/60 border-gray-400/50"; nameStyle = "text-gray-300 font-bold"; }
+                 else if (rank === 3) { rankStyle = "bg-amber-700 text-amber-100 shadow-lg"; rowStyle = "glass-panel bg-amber-900/40 border-amber-700/50"; nameStyle = "text-amber-500 font-bold"; }
 
-                  if (actualRank === 1) {
-                    styleClass = "bg-gradient-to-r from-yellow-300 to-yellow-600 text-black border-2 border-yellow-200 shadow-[0_0_30px_rgba(250,204,21,0.6)] scale-110 z-30 transform";
-                    textClass = "text-yellow-900";
-                  } else if (actualRank === 2) {
-                    styleClass = "bg-gradient-to-r from-slate-300 to-slate-400 text-black border-2 border-white shadow-[0_0_20px_rgba(148,163,184,0.6)] scale-105 z-20 transform";
-                    textClass = "text-slate-800";
-                  } else if (actualRank === 3) {
-                    styleClass = "bg-gradient-to-r from-amber-600 to-amber-700 text-white border-2 border-amber-500 shadow-[0_0_20px_rgba(217,119,6,0.6)] scale-105 z-10 transform";
-                    textClass = "text-amber-200";
-                  }
-
-                  return (
-                    <div key={actualRank} className={`flex justify-between items-center p-3 sm:p-5 rounded-xl text-lg sm:text-xl md:text-2xl font-bold animate-fade-in-up transition-all duration-500 ${styleClass} relative gap-4`} style={{ zIndex: actualRank <= 3 ? 4 - actualRank : 0 }}>
-                      <div className="flex gap-2 sm:gap-4 items-center min-w-0 flex-1">
-                        <span className={`w-8 sm:w-10 md:w-12 shrink-0 text-xl sm:text-2xl md:text-3xl ${textClass}`}>#{actualRank}</span>
-                        <span className="text-xl sm:text-2xl md:text-3xl truncate break-words whitespace-normal leading-tight min-w-0">{u.name || u.combinedName || u.Name}</span>
+                 return (
+                  <div 
+                    key={user.name} 
+                    className={`${rowStyle} border p-5 rounded-2xl flex items-center justify-between transition-all duration-500 transform ${isRevealed ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 absolute pointer-events-none'}`}
+                    style={{ transitionDelay: isRevealed ? '0ms' : '0ms' }}
+                  >
+                    <div className="flex items-center gap-6">
+                      <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl font-black ${rankStyle}`}>
+                        {rank}
                       </div>
-                      <div className={`text-xl sm:text-2xl md:text-3xl shrink-0 whitespace-nowrap text-right ${actualRank <= 3 ? (actualRank === 3 ? 'text-amber-200' : 'text-black/80') : 'text-gold-400'}`}>
-                        {u.points !== undefined ? u.points : (u.score !== undefined ? u.score : (u.totalPoints !== undefined ? u.totalPoints : u.Points))} pts
-                      </div>
+                      <div className={`text-3xl ${nameStyle}`}>{user.name}</div>
                     </div>
-                  );
-                })
+                    <div className="text-4xl font-black text-white drop-shadow-md">
+                      {user.points.toLocaleString()}
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {visibleLeaderboard.length === 0 && (
+                  <div className="text-center text-gray-400 text-2xl mt-12">No scores available yet.</div>
               )}
             </div>
-          </div>
           </div>
         )}
       </main>

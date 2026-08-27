@@ -1,124 +1,63 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 
 export default function ParticipantJoin() {
-  const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
-  const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
 
-  useEffect(() => {
-    api.getUsers()
-      .then(data => {
-        setUsers(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Failed to fetch users", err);
-        setLoading(false);
-      });
-  }, []);
-
-  // Close dropdown on click outside
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   const handleJoin = async () => {
-    if (selectedUser) {
+    if (selectedUser.trim()) {
       setJoining(true);
       try {
-        await api.joinSession(selectedUser);
+        await api.joinSession(selectedUser.trim());
       } catch (err) {
         console.error("Failed to notify join to server", err);
       }
-      localStorage.setItem('participantName', selectedUser);
+      localStorage.setItem('participantName', selectedUser.trim());
       navigate('/play');
     }
   };
 
-  const filteredUsers = users.filter(u => 
-    u.Combined_Name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-marine-900 p-4 sm:p-6">
-      <div className="animate-fade-in-up bg-marine-800 p-6 sm:p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gold-500/30">
-        <div className="flex justify-center gap-4 mb-6 animate-pop-in" style={{ animationDelay: '0.1s' }}>
-          <img src="/logo_agm-.png" alt="AGM Logo" className="h-10 sm:h-12 object-contain" />
-          <img src="/Konvensi_Logo.jpeg" alt="Convention Logo" className="h-10 sm:h-12 object-contain rounded-md" />
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-center mb-6 text-gold-400 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-          Join the Voyage
-        </h1>
-        
-        <div className="space-y-5 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Select Your Name</label>
-            <div className="relative" ref={dropdownRef}>
-              <div 
-                className="w-full p-3.5 sm:p-4 rounded-xl bg-marine-700 border border-marine-500 text-white focus:outline-none focus:ring-2 focus:ring-gold-500 transition-shadow cursor-pointer text-base sm:text-lg flex justify-between items-center"
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              >
-                <span className={selectedUser ? "text-white" : "text-gray-400"}>
-                  {selectedUser || (loading ? "Loading crew..." : "-- Choose Name --")}
-                </span>
-                <svg className={`fill-current h-5 w-5 text-gold-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-              </div>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden">
+      
+      {/* Decorative background elements */}
+      <div className="absolute top-10 left-10 w-32 h-32 bg-poster-blue-light/20 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-10 right-10 w-48 h-48 bg-poster-red-bright/10 rounded-full blur-3xl"></div>
 
-              {isDropdownOpen && (
-                <div className="absolute z-10 w-full mt-2 bg-marine-700 border border-marine-500 rounded-xl shadow-xl overflow-hidden">
-                  <div className="p-3 border-b border-marine-600">
-                    <input
-                      type="text"
-                      className="w-full bg-marine-800 text-white border border-marine-500 rounded-lg p-2 focus:outline-none focus:border-gold-500"
-                      placeholder="Search name..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      autoFocus
-                    />
-                  </div>
-                  <ul className="max-h-60 overflow-y-auto">
-                    {filteredUsers.length === 0 ? (
-                      <li className="p-3 text-slate-400 text-center">No name found</li>
-                    ) : (
-                      filteredUsers.map((u, i) => (
-                        <li 
-                          key={i} 
-                          className="p-3 hover:bg-marine-600 cursor-pointer text-white transition-colors"
-                          onClick={() => {
-                            setSelectedUser(u.Combined_Name);
-                            setIsDropdownOpen(false);
-                            setSearchTerm('');
-                          }}
-                        >
-                          {u.Combined_Name}
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                </div>
-              )}
-            </div>
+      <div className="animate-fade-in-up glass-panel p-6 sm:p-10 rounded-3xl shadow-2xl w-full max-w-md relative z-10 border border-white/10 flex flex-col items-center">
+        
+        {/* Logos */}
+        <div className="flex items-center justify-center gap-6 mb-6">
+          <img src="/Lentera.png" alt="Lentera Logo" className="h-12 object-contain" />
+          <img src="/Logo_HCGA.png" alt="HCGA Logo" className="h-12 object-contain" />
+        </div>
+
+        <h1 className="text-3xl sm:text-4xl font-black text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-poster-cyan to-white tracking-wide">
+          HCGA SESSION
+        </h1>
+        <p className="text-center text-gray-300 font-medium mb-8 tracking-wider uppercase text-sm">Learn, Share, Grow Together</p>
+        
+        <div className="space-y-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+          <div>
+            <label className="block text-sm font-semibold text-poster-cyan mb-2 tracking-wide uppercase">Enter Your Name</label>
+            <input
+              type="text"
+              value={selectedUser}
+              onChange={(e) => setSelectedUser(e.target.value)}
+              placeholder="Type your name here..."
+              className="w-full p-4 rounded-xl bg-black/30 border border-white/20 text-white focus:outline-none focus:border-poster-cyan focus:ring-1 focus:ring-poster-cyan transition-all text-base sm:text-lg backdrop-blur-md shadow-md"
+              autoFocus
+            />
           </div>
           
           <button 
             onClick={handleJoin}
             disabled={!selectedUser || joining}
-            className="w-full bg-gold-500 hover:bg-gold-400 active:scale-95 disabled:opacity-50 disabled:active:scale-100 text-marine-900 font-bold py-4 px-4 rounded-xl transition-all duration-200 text-lg shadow-lg hover:shadow-gold-500/20"
+            className="w-full bg-poster-red hover:bg-poster-red-bright active:scale-95 disabled:opacity-50 disabled:active:scale-100 text-white font-bold py-4 px-4 rounded-xl transition-all duration-300 text-lg shadow-lg uppercase tracking-wider mt-4"
           >
             {joining ? "Joining..." : "Enter Session"}
           </button>
