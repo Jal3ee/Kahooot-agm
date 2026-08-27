@@ -103,20 +103,24 @@ export default function PresenterView() {
       }
     });
 
-    const unsubscribeScores = api.subscribeToScores((newScore) => {
-      if (newScore.question_no === 999 && newScore.answered_option === 'A') {
-        setTrapWinner((prev) => {
-          if (!prev) return newScore.combined_name;
-          return prev;
-        });
-      }
-    });
-
     return () => {
       if(unsubscribe) unsubscribe();
-      if(unsubscribeScores) unsubscribeScores();
     };
   }, []);
+
+  // Poll for trap winner if Trap is active
+  useEffect(() => {
+    let interval;
+    if (gameState.Trap_Active && !trapWinner) {
+      interval = setInterval(async () => {
+        const winner = await api.checkTrapWinner(gameState.Active_Session_ID);
+        if (winner) {
+          setTrapWinner(winner);
+        }
+      }, 500); // Check every half second
+    }
+    return () => clearInterval(interval);
+  }, [gameState.Trap_Active, trapWinner, gameState.Active_Session_ID]);
 
   // Sync questions and users based on state changes
   useEffect(() => {

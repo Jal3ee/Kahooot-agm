@@ -220,5 +220,23 @@ export const api = {
     return () => {
       supabase.removeChannel(channel);
     };
+  },
+
+  checkTrapWinner: async (sessionId) => {
+    let query = supabase
+      .from('scores')
+      .select('combined_name')
+      .eq('question_no', 999)
+      .eq('answered_option', 'A')
+      .order('id', { ascending: true })
+      .limit(1);
+
+    if (sessionId) {
+      const sessionNum = String(sessionId).replace('Session', '').trim();
+      query = query.or(`session_id.eq.${sessionNum},session_id.eq.${sessionId}`);
+    }
+
+    const { data, error } = await query.single();
+    return data ? data.combined_name : null;
   }
 };
