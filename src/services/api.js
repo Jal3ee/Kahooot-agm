@@ -235,7 +235,7 @@ export const api = {
       query = query.or(`session_id.eq.${sessionNum},session_id.eq.${sessionId}`);
     }
 
-    const { data, error } = await query.single();
+    const { data, error } = await query.maybeSingle();
     return data ? data.combined_name : null;
   }
 };
