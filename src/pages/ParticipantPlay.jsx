@@ -60,7 +60,9 @@ export default function ParticipantPlay() {
   }, [gameState.Active_Session_ID, activeSessionId, questions.length]);
 
   const handleAnswer = async (option) => {
-    if (answered || gameState.Status !== 'QUESTION_ACTIVE') return;
+    const isQuestionActive = gameState.Status === 'QUESTION_ACTIVE' || gameState.Trap_Active;
+    if (answered || !isQuestionActive) return;
+    
     setAnswered(true);
     
     let isCorrect = false;
@@ -114,14 +116,14 @@ export default function ParticipantPlay() {
           SCORE <span key={score} className="inline-block animate-score-pop ml-2">{score}</span>
         </div>
 
-        {(gameState.Status === 'WAITING' || gameState.Status === 'FINISHED') && (
+        {(!gameState.Trap_Active && (gameState.Status === 'WAITING' || gameState.Status === 'FINISHED')) && (
           <div className="bg-black/30 rounded-2xl py-12 px-4 border border-poster-cyan/30 backdrop-blur-sm shadow-md">
             <h3 className="text-3xl font-black text-white mb-3 drop-shadow-md">YOU'RE IN!</h3>
             <p className="text-gray-300 font-medium">Waiting for the captain to start the game...</p>
           </div>
         )}
 
-        {gameState.Status === 'QUESTION_ACTIVE' && (() => {
+        {(gameState.Status === 'QUESTION_ACTIVE' || gameState.Trap_Active) && (() => {
           let displayQuestion = null;
           if (gameState.Trap_Active) {
             displayQuestion = {

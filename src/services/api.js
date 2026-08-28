@@ -227,7 +227,6 @@ export const api = {
       .from('scores')
       .select('combined_name')
       .eq('question_no', 999)
-      .eq('answered_option', 'A')
       .order('id', { ascending: true })
       .limit(1);
 
